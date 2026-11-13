@@ -363,6 +363,9 @@
         //    (pixels nettement plus proches de la couleur de l'encre que la peau propre).
         // Ne dépend que de la zone à effacer (pas de la source) : calculé une fois par
         // sélection et mis en cache, pour que le glissement de la source reste fluide.
+        // Le halo ne sert QU'À mesurer la couleur (raccord pris sur de la peau propre) :
+        // seuls les pixels de la sélection elle-même sont remplacés.
+        var selList = c.list, selMask = c.mask;
         var halo = null;
         if (c.params.seed && HALO_MAX > 0) {
           if (c.cache && 'halo' in c.cache) halo = c.cache.halo;
@@ -439,9 +442,9 @@
         // 4. Résultat = texture source + correction × « raccord couleur »
         //    (1 = raccord complet au contour, 0 = teinte exacte de la source).
         var k = c.params.match == null ? 1 : c.params.match;
-        var overlap = 0;
-        for (j = 0; j < L; j++) {
-          p = list[j];
+        var overlap = 0, SL = selList.length;
+        for (j = 0; j < SL; j++) {
+          p = selList[j];
           x = p % w; y = (p - x) / w;
           s = src(x, y);
           d[p * 4] = S[s] + F[p * 3] * k;
@@ -450,9 +453,9 @@
           d[p * 4 + 3] = 255;
           // la source tombe-t-elle dans la zone à effacer ?
           var sx = x + dx, sy = y + dy;
-          if (sx >= 0 && sy >= 0 && sx < w && sy < h && m[sy * w + sx]) overlap++;
+          if (sx >= 0 && sy >= 0 && sx < w && sy < h && selMask[sy * w + sx]) overlap++;
         }
-        return { overlap: overlap / L, mask: m };
+        return { overlap: SL ? overlap / SL : 0, mask: selMask };
       }
     },
 
