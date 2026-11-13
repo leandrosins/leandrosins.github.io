@@ -70,6 +70,9 @@
     brushPreview: null, // {x, y, r} en coordonnées image
     savedIdx: 0,
     blur: { mode: 'blur', grain: 5, size: 30 },
+    // Baguette : tol = niveau 0..1000 ; `sel` = sélection en cours (non appliquée)
+    // step 1 = choix de la zone à effacer, step 2 = choix de la zone source
+    wand: { tol: 150, grow: 2, step: 1, method: 'heal', sel: null },
     patch: { emoji: null, size: 22 },   // taille en % du grand côté
     stamp: loadStampPrefs(),
     view: { s: 1, tx: 0, ty: 0 },
@@ -202,6 +205,292 @@
         }
       }
     }
+  }
+
+  // ---------- Baguette magique ----------
+  // Sélection « par proximité » (comme la baguette de Paint.NET) : depuis le pixel touché,
+  // on s'étend aux voisins dont la couleur est assez proche de la couleur touchée.
+  //
+  // Astuce de performance : au toucher, on calcule une seule fois pour CHAQUE pixel
+  // la tolérance minimale à partir de laquelle il rejoint la sélection (propagation
+  // « minimax » avec une file à seaux). Changer la tolérance devient alors un simple
+  // seuil : l'aperçu se met à jour en direct.
+  var WAND_LEVELS = 1000; // la tolérance 0..1 est discrétisée en 1000 niveaux
+
+  // Prépare l'analyse depuis le pixel (sx, sy). Le calcul lui-même est progressif :
+  // wandExtend(a, T) ne traite que les niveaux nécessaires jusqu'à la tolérance T,
+  // et reprend là où il s'était arrêté si la tolérance augmente ensuite.
+  function wandAnalyze(imageData, sx, sy, T) {
+    var w = imageData.width, h = imageData.height, d = imageData.data, N = w * h, LV = WAND_LEVELS;
+    var s = sy * w + sx, si = s * 4;
+    var a = {
+      w: w, h: h, sx: sx, sy: sy, image: imageData,
+      seed: [d[si], d[si + 1], d[si + 2]],
+      level: new Uint16Array(N).fill(65535),
+      next: new Int32Array(N),
+      head: new Int32Array(LV + 1).fill(-1),
+      count: new Float64Array(LV + 1),
+      x0: new Int32Array(LV + 1).fill(w), y0: new Int32Array(LV + 1).fill(h),
+      x1: new Int32Array(LV + 1).fill(-1), y1: new Int32Array(LV + 1).fill(-1),
+      done: -1 // dernier niveau entièrement traité
+    };
+    a.level[s] = 0; a.next[s] = -1; a.head[0] = s;
+    wandExtend(a, T == null ? LV : T);
+    return a;
+  }
+
+  function wandExtend(a, T) {
+    if (T <= a.done) return;
+    var w = a.w, h = a.h, d = a.image.data, LV = WAND_LEVELS;
+    var level = a.level, next = a.next, head = a.head, count = a.count;
+    var bx0 = a.x0, by0 = a.y0, bx1 = a.x1, by1 = a.y1;
+    var r0 = a.seed[0], g0 = a.seed[1], b0 = a.seed[2];
+    // distance RGB normalisée : 0 = même couleur, 1 = écart maximal (noir ↔ blanc)
+    var norm = LV / (Math.sqrt(3) * 255);
+
+    for (var L = a.done + 1; L <= T; L++) {
+      // Les cumuls du niveau L partent de ceux du niveau précédent.
+      if (L > 0) {
+        count[L] = count[L - 1];
+        bx0[L] = bx0[L - 1]; by0[L] = by0[L - 1]; bx1[L] = bx1[L - 1]; by1[L] = by1[L - 1];
+      }
+      while (head[L] !== -1) {
+        var p = head[L];
+        head[L] = next[p];
+        var x = p % w, y = (p - x) / w;
+        count[L]++;
+        if (x < bx0[L]) bx0[L] = x;
+        if (x > bx1[L]) bx1[L] = x;
+        if (y < by0[L]) by0[L] = y;
+        if (y > by1[L]) by1[L] = y;
+        // 4 voisins
+        for (var k = 0; k < 4; k++) {
+          var n;
+          if (k === 0) { if (x === 0) continue; n = p - 1; }
+          else if (k === 1) { if (x === w - 1) continue; n = p + 1; }
+          else if (k === 2) { if (y === 0) continue; n = p - w; }
+          else { if (y === h - 1) continue; n = p + w; }
+          if (level[n] !== 65535) continue;
+          var ni = n * 4;
+          var dr = d[ni] - r0, dg = d[ni + 1] - g0, db = d[ni + 2] - b0;
+          var nl = Math.ceil(Math.sqrt(dr * dr + dg * dg + db * db) * norm);
+          if (nl < L) nl = L;
+          if (nl > LV) nl = LV;
+          level[n] = nl;
+          next[n] = head[nl];
+          head[nl] = n;
+        }
+      }
+    }
+    a.done = T;
+  }
+
+  // Extrait la zone utile : rectangle englobant la sélection, élargie de `grow` px,
+  // + 1 px de marge (le contour extérieur, utilisé par le remplissage).
+  // Renvoie une copie des pixels d'origine + le masque (1 = à remplacer).
+  function wandRegion(a, T, grow) {
+    wandExtend(a, T);
+    var margin = grow + 1;
+    var x0 = Math.max(0, a.x0[T] - margin), y0 = Math.max(0, a.y0[T] - margin);
+    var x1 = Math.min(a.w - 1, a.x1[T] + margin), y1 = Math.min(a.h - 1, a.y1[T] + margin);
+    var rw = x1 - x0 + 1, rh = y1 - y0 + 1;
+    var src = a.image.data, data = new Uint8ClampedArray(rw * rh * 4), mask = new Uint8Array(rw * rh);
+    for (var y = 0; y < rh; y++) {
+      var row = (y0 + y) * a.w + x0;
+      data.set(src.subarray(row * 4, (row + rw) * 4), y * rw * 4);
+      for (var x = 0; x < rw; x++) mask[y * rw + x] = a.level[row + x] <= T ? 1 : 0;
+    }
+    // Élargissement (dilatation), en alternant voisinage 4 et 8 pour un bord arrondi.
+    for (var g = 0; g < grow; g++) {
+      var prev = mask.slice(), diag = g % 2 === 1;
+      for (var yy = 0; yy < rh; yy++) {
+        for (var xx = 0; xx < rw; xx++) {
+          var i = yy * rw + xx;
+          if (prev[i]) continue;
+          var l = xx > 0, r = xx < rw - 1, u = yy > 0, dn = yy < rh - 1;
+          if ((l && prev[i - 1]) || (r && prev[i + 1]) || (u && prev[i - rw]) || (dn && prev[i + rw]) ||
+              (diag && ((l && u && prev[i - rw - 1]) || (r && u && prev[i - rw + 1]) ||
+                        (l && dn && prev[i + rw - 1]) || (r && dn && prev[i + rw + 1])))) {
+            mask[i] = 1;
+          }
+        }
+      }
+    }
+    // Un pixel sélectionné collé au bord de la photo n'a pas de contour de ce côté :
+    // on le retire du masque pour que le remplissage ait toujours 4 voisins.
+    for (var e = 0; e < rw; e++) { if (y0 === 0) mask[e] = 0; if (y1 === a.h - 1) mask[(rh - 1) * rw + e] = 0; }
+    for (var f = 0; f < rh; f++) { if (x0 === 0) mask[f * rw] = 0; if (x1 === a.w - 1) mask[f * rw + rw - 1] = 0; }
+    var count = 0, list = [];
+    for (var k = 0; k < mask.length; k++) if (mask[k]) { count++; list.push(k); }
+    return {
+      x: x0, y: y0, w: rw, h: rh, data: data, mask: mask, count: count,
+      list: Int32Array.from(list), T: T, grow: grow
+    };
+  }
+
+  // Méthodes de remplissage de la sélection (on en ajoutera d'autres pour les essais).
+  // fill(c) reçoit c = { data (RGBA de la zone, à modifier là où mask = 1), mask, list
+  // (indices sélectionnés), w, h, x, y (origine de la zone dans la photo),
+  // image (ImageData de toute la photo), params } et renvoie des infos, ou null.
+  var FILL_METHODS = {
+    // « Correcteur » (comme la Pièce / le pinceau correcteur de Photoshop) :
+    // - la TEXTURE (grain, pores, bruit) est copiée depuis la zone source (décalage dx, dy) ;
+    // - la COULEUR / LUMIÈRE est raccordée au contour : l'écart entre le contour de la
+    //   sélection et celui de la source est étalé en douceur dans toute la zone
+    //   (interpolation « membrane » = équation de Laplace), donc pas de démarcation.
+    heal: {
+      fill: function (c) {
+        var w = c.w, h = c.h, m = c.mask, d = c.data, list = c.list;
+        var img = c.image, IW = img.width, IH = img.height, S = img.data;
+        var dx = Math.round(c.params.dx || 0), dy = Math.round(c.params.dy || 0);
+        var n = w * h;
+        // indice (dans la photo) du pixel source correspondant au pixel (rx, ry) de la zone
+        function src(rx, ry) {
+          var X = c.x + rx + dx, Y = c.y + ry + dy;
+          if (X < 0) X = -X; else if (X >= IW) X = 2 * IW - 2 - X; // miroir aux bords
+          if (Y < 0) Y = -Y; else if (Y >= IH) Y = 2 * IH - 2 - Y;
+          X = Math.min(IW - 1, Math.max(0, X)); Y = Math.min(IH - 1, Math.max(0, Y));
+          return (Y * IW + X) * 4;
+        }
+
+        // 1. Contour extérieur : écart de couleur destination − source.
+        var F = new Float32Array(n * 3);   // correction (R, V, B) par pixel
+        var bIdx = [], bx = [], by = [];
+        var x, y, i, s, j;
+        for (y = 0; y < h; y++) {
+          for (x = 0; x < w; x++) {
+            i = y * w + x;
+            if (m[i]) continue;
+            if ((x > 0 && m[i - 1]) || (x < w - 1 && m[i + 1]) || (y > 0 && m[i - w]) || (y < h - 1 && m[i + w])) {
+              s = src(x, y);
+              F[i * 3] = d[i * 4] - S[s];
+              F[i * 3 + 1] = d[i * 4 + 1] - S[s + 1];
+              F[i * 3 + 2] = d[i * 4 + 2] - S[s + 2];
+              bIdx.push(i); bx.push(x); by.push(y);
+            }
+          }
+        }
+        var B = bIdx.length, L = list.length;
+        if (!B || !L) return null; // rien à remplir, ou pas de contour
+
+        // 2. Première approximation lisse : moyenne des écarts du contour pondérée
+        //    par l'inverse de la distance (sur 256 points du contour au plus).
+        var stride = Math.max(1, Math.ceil(B / 256));
+        var K = Math.ceil(B / stride), kx = new Float32Array(K), ky = new Float32Array(K), kv = new Float32Array(K * 3);
+        for (j = 0, s = 0; j < B; j += stride, s++) {
+          kx[s] = bx[j]; ky[s] = by[j];
+          kv[s * 3] = F[bIdx[j] * 3]; kv[s * 3 + 1] = F[bIdx[j] * 3 + 1]; kv[s * 3 + 2] = F[bIdx[j] * 3 + 2];
+        }
+        var p;
+        for (j = 0; j < L; j++) {
+          p = list[j];
+          x = p % w; y = (p - x) / w;
+          var sw = 0, sr = 0, sg = 0, sb = 0;
+          for (var q = 0; q < K; q++) {
+            var ex = kx[q] - x, ey = ky[q] - y, d2 = ex * ex + ey * ey + 0.5;
+            var wt = 1 / (d2 * Math.sqrt(d2));
+            sw += wt; sr += wt * kv[q * 3]; sg += wt * kv[q * 3 + 1]; sb += wt * kv[q * 3 + 2];
+          }
+          F[p * 3] = sr / sw; F[p * 3 + 1] = sg / sw; F[p * 3 + 2] = sb / sw;
+        }
+
+        // 3. Affinage : relaxation (Gauss-Seidel sur-relaxé) de l'équation de Laplace,
+        //    pour un raccord parfait avec chaque pixel du contour.
+        var iters = L > 200000 ? 40 : 80, om = 1.85;
+        for (var it = 0; it < iters; it++) {
+          for (j = 0; j < L; j++) {
+            p = list[j];
+            var a3 = (p - 1) * 3, b3 = (p + 1) * 3, u3 = (p - w) * 3, v3 = (p + w) * 3, p3 = p * 3;
+            F[p3] += om * ((F[a3] + F[b3] + F[u3] + F[v3]) * 0.25 - F[p3]);
+            F[p3 + 1] += om * ((F[a3 + 1] + F[b3 + 1] + F[u3 + 1] + F[v3 + 1]) * 0.25 - F[p3 + 1]);
+            F[p3 + 2] += om * ((F[a3 + 2] + F[b3 + 2] + F[u3 + 2] + F[v3 + 2]) * 0.25 - F[p3 + 2]);
+          }
+        }
+
+        // 4. Résultat = texture source + correction.
+        var overlap = 0;
+        for (j = 0; j < L; j++) {
+          p = list[j];
+          x = p % w; y = (p - x) / w;
+          s = src(x, y);
+          d[p * 4] = S[s] + F[p * 3];
+          d[p * 4 + 1] = S[s + 1] + F[p * 3 + 1];
+          d[p * 4 + 2] = S[s + 2] + F[p * 3 + 2];
+          d[p * 4 + 3] = 255;
+          // la source tombe-t-elle dans la zone à effacer ?
+          var sx = x + dx, sy = y + dy;
+          if (sx >= 0 && sy >= 0 && sx < w && sy < h && m[sy * w + sx]) overlap++;
+        }
+        return { overlap: overlap / L };
+      }
+    },
+
+    // Ancienne méthode (gardée pour comparaison) : couleur médiane du contour, en aplat.
+    median: {
+      fill: function (c) {
+        var data = c.data, mask = c.mask, w = c.w, h = c.h;
+        var hr = new Uint32Array(256), hg = new Uint32Array(256), hb = new Uint32Array(256), n = 0;
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            var i = y * w + x;
+            if (mask[i]) continue;
+            if ((x > 0 && mask[i - 1]) || (x < w - 1 && mask[i + 1]) ||
+                (y > 0 && mask[i - w]) || (y < h - 1 && mask[i + w])) {
+              hr[data[i * 4]]++; hg[data[i * 4 + 1]]++; hb[data[i * 4 + 2]]++; n++;
+            }
+          }
+        }
+        if (!n) return null;
+        var col = [histMedian(hr, n), histMedian(hg, n), histMedian(hb, n)];
+        for (var j = 0; j < c.list.length; j++) {
+          var p = c.list[j];
+          data[p * 4] = col[0]; data[p * 4 + 1] = col[1]; data[p * 4 + 2] = col[2]; data[p * 4 + 3] = 255;
+        }
+        return { color: col };
+      }
+    }
+  };
+
+  function histMedian(hist, n) {
+    var half = n / 2, acc = 0;
+    for (var v = 0; v < 256; v++) { acc += hist[v]; if (acc >= half) return v; }
+    return 255;
+  }
+
+  // Remplit une zone (calculée par wandRegion) : renvoie les pixels résultat + infos.
+  function wandFill(a, reg, method, params) {
+    var m = FILL_METHODS[method] || FILL_METHODS.heal;
+    var out = reg.data.slice();
+    var info = m.fill({
+      data: out, mask: reg.mask, list: reg.list, w: reg.w, h: reg.h, x: reg.x, y: reg.y,
+      image: a.image, params: params || {}
+    });
+    return { data: out, info: info };
+  }
+
+  // Décalage source par défaut : juste à côté de la sélection, sans la chevaucher,
+  // en restant dans la photo (on essaie à droite, à gauche, en bas, en haut…).
+  function wandDefaultOffset(a, reg) {
+    var gap = 12, bw = reg.w, bh = reg.h;
+    var cands = [[bw + gap, 0], [-(bw + gap), 0], [0, bh + gap], [0, -(bh + gap)],
+                 [bw + gap, bh + gap], [-(bw + gap), bh + gap], [bw + gap, -(bh + gap)], [-(bw + gap), -(bh + gap)]];
+    var best = cands[0], bestOut = Infinity;
+    for (var i = 0; i < cands.length; i++) {
+      var x0 = reg.x + cands[i][0], y0 = reg.y + cands[i][1];
+      var out = Math.max(0, -x0) + Math.max(0, x0 + bw - a.w) + Math.max(0, -y0) + Math.max(0, y0 + bh - a.h);
+      if (out < bestOut) { bestOut = out; best = cands[i]; }
+      if (out === 0) break;
+    }
+    return { dx: best[0], dy: best[1] };
+  }
+
+  // Calcul complet à partir d'une opération enregistrée (pour rejouer l'historique).
+  function wandCompute(a, op) {
+    var reg = wandRegion(a, op.tol, op.grow || 0);
+    var res = wandFill(a, reg, op.method, { dx: op.dx, dy: op.dy });
+    reg.result = res.data;
+    reg.info = res.info;
+    return reg;
   }
 
   // ---------- Trait de flou ----------
@@ -387,6 +676,11 @@
       freeStroke(s);
     } else if (op.type === 'item') {
       drawItem(pctx, op.item);
+    } else if (op.type === 'wand') {
+      // On rejoue la sélection à partir de l'état courant de la photo (déterministe).
+      var a = wandAnalyze(pctx.getImageData(0, 0, photo.width, photo.height), op.x, op.y, op.tol);
+      var reg = wandCompute(a, op);
+      if (reg.info) pctx.putImageData(new ImageData(reg.result, reg.w, reg.h), reg.x, reg.y);
     }
   }
 
@@ -406,6 +700,7 @@
 
   function undo() {
     if (state.pending) { discardPending(); return; }
+    if (state.wand.sel) { wandDiscard(); return; }
     if (state.idx === 0) return;
     state.idx--;
     rerender();
@@ -415,6 +710,7 @@
 
   function redo() {
     if (state.pending) commitPending();
+    if (state.wand.sel) wandApply();
     if (state.idx >= state.ops.length) return;
     applyOp(state.ops[state.idx]);
     state.idx++;
@@ -423,7 +719,7 @@
   }
 
   function updateHistoryUI() {
-    undoBtn.disabled = !state.loaded || (state.idx === 0 && !state.pending);
+    undoBtn.disabled = !state.loaded || (state.idx === 0 && !state.pending && !state.wand.sel);
     redoBtn.disabled = !state.loaded || state.idx >= state.ops.length;
   }
 
@@ -463,6 +759,7 @@
       state.ops = []; state.idx = 0; state.savedIdx = 0;
       state.pending = null;
       cancelStroke();
+      if (state.wand.sel) wandDiscard();
       photo.width = w; photo.height = h;
       pctx.drawImage(base, 0, 0);
       state.loaded = true;
@@ -657,6 +954,53 @@
       ctx.stroke();
     }
 
+    var ws = state.wand.sel;
+    if (ws && ws.preview && ws.reg) {
+      var R = ws.reg;
+      ctx.imageSmoothingEnabled = false; // bords nets, fidèles au résultat final
+      ctx.drawImage(ws.preview, R.x * sc, R.y * sc, R.w * sc, R.h * sc);
+      if (state.wand.step === 2 && ws.ghost && ws.dx != null) {
+        // Zone source : forme en jaune + cadre pointillé + lien vers la zone à effacer.
+        var gx = (R.x + ws.dx) * sc, gy = (R.y + ws.dy) * sc;
+        ctx.drawImage(ws.ghost, gx, gy, R.w * sc, R.h * sc);
+        ctx.imageSmoothingEnabled = true;
+        ctx.setLineDash([6 * cssPx, 5 * cssPx]);
+        ctx.lineWidth = 1.5 * cssPx;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.strokeRect(gx, gy, R.w * sc, R.h * sc);
+        ctx.strokeRect(R.x * sc, R.y * sc, R.w * sc, R.h * sc);
+        ctx.lineDashOffset = 5.5 * cssPx;
+        ctx.strokeStyle = '#ffcd3c';
+        ctx.strokeRect(gx, gy, R.w * sc, R.h * sc);
+        ctx.strokeStyle = '#ffffff';
+        ctx.strokeRect(R.x * sc, R.y * sc, R.w * sc, R.h * sc);
+        ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
+        var cx1 = (R.x + R.w / 2) * sc, cy1 = (R.y + R.h / 2) * sc;
+        ctx.beginPath();
+        ctx.moveTo(cx1, cy1);
+        ctx.lineTo(gx + R.w * sc / 2, gy + R.h * sc / 2);
+        ctx.strokeStyle = 'rgba(255,205,60,0.8)';
+        ctx.lineWidth = 1.5 * cssPx;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(gx + R.w * sc / 2, gy + R.h * sc / 2, 4 * cssPx, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffcd3c';
+        ctx.fill();
+      }
+      ctx.imageSmoothingEnabled = true;
+      // repère du point touché
+      var mx = (ws.a.sx + 0.5) * sc, my = (ws.a.sy + 0.5) * sc;
+      ctx.beginPath();
+      ctx.arc(mx, my, 6 * cssPx, 0, Math.PI * 2);
+      ctx.lineWidth = 3 * cssPx;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.stroke();
+      ctx.lineWidth = 1.5 * cssPx;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+    }
+
     var bp = state.brushPreview;
     if (bp) {
       ctx.beginPath();
@@ -795,6 +1139,10 @@
     var g = gesture;
     if (!g) return;
     if (g.type === 'stroke') cancelStroke();
+    if (g.type === 'wand-src' && state.wand.sel) {
+      state.wand.sel.dx = g.dx0; state.wand.sel.dy = g.dy0;
+      scheduleWandRefresh();
+    }
     if ((g.type === 'move' || g.type === 'handle') && state.pending) {
       if (g.created) {
         setPending(null);
@@ -824,6 +1172,12 @@
     if (gesture && gesture.type === 'stroke') {
       endStroke();
     }
+    if (gesture && gesture.type === 'wand-src' && pointers.size === 0) wandSourceEnd();
+    if (gesture && gesture.type === 'wand-tap' && pointers.size === 0) {
+      // Un simple toucher (sans glisser ni deuxième doigt) choisit le point de départ.
+      var wp = toImage(gesture.x, gesture.y);
+      wandSelectAt(wp.x, wp.y);
+    }
     if (pointers.size === 0) {
       if (gesture && gesture.type === 'pinch-view') resizeOverlay();
       if (gesture && gesture.type === 'handle') syncSizeSliders();
@@ -842,6 +1196,13 @@
   function startSingle(e) {
     var p = toImage(e.clientX, e.clientY);
     var k = imgPerCss();
+
+    if (state.tool === 'blur' && state.blur.mode === 'wand') {
+      if (state.wand.step === 2 && state.wand.sel) { wandSourceStart(e); return; }
+      // La sélection se fait au relâchement, pour laisser place à un éventuel pincement.
+      gesture = { type: 'wand-tap', x: e.clientX, y: e.clientY };
+      return;
+    }
 
     if (state.tool === 'blur') {
       var radius = state.blur.size * k;
@@ -901,6 +1262,14 @@
 
   function moveSingle(e) {
     var g = gesture, it = state.pending;
+    if (g.type === 'wand-src') { wandSourceMove(e); return; }
+    if (g.type === 'wand-tap') {
+      // Le doigt glisse : ce n'est plus un toucher, on déplace la photo.
+      if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10) {
+        gesture = { type: 'pan', x: e.clientX, y: e.clientY, tx: state.view.tx, ty: state.view.ty };
+      }
+      return;
+    }
     if (g.type === 'stroke' && state.stroke) {
       var p = toImage(e.clientX, e.clientY);
       strokeAdd(state.stroke, p.x, p.y);
@@ -1026,6 +1395,7 @@
   function selectTool(t) {
     if (state.stroke) cancelStroke();
     if (state.pending) commitPending();
+    if (state.wand.sel) wandApply();
     state.tool = state.tool === t ? null : t;
     toolButtons.forEach(function (b) { b.classList.toggle('is-active', b.dataset.tool === state.tool); });
     document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== state.tool; });
@@ -1034,7 +1404,7 @@
       ensureStampPending();
       if (!state.stamp.text.trim()) setTimeout(function () { $('#stamp-text').focus(); }, 50);
     }
-    if (state.tool === 'blur') setTimeout(flashBrush, 60);
+    if (state.tool === 'blur' && state.blur.mode !== 'wand') setTimeout(flashBrush, 60);
   }
 
   // « Appliquer » : on fixe l'élément sur la photo puis on referme l'outil.
@@ -1051,12 +1421,215 @@
   // Flou
   document.querySelectorAll('[data-blur-mode]').forEach(function (b) {
     b.addEventListener('click', function () {
+      if (state.wand.sel) wandDiscard();
       state.blur.mode = b.dataset.blurMode;
       document.querySelectorAll('[data-blur-mode]').forEach(function (x) {
         x.setAttribute('aria-checked', String(x === b));
       });
+      var wand = state.blur.mode === 'wand';
+      document.querySelector('[data-blur-opts="brush"]').hidden = wand;
+      document.querySelector('[data-blur-opts="wand"]').hidden = !wand;
+      $('#blur-hint').textContent = wand
+        ? 'Touchez la zone à effacer'
+        : 'Touchez ou glissez le doigt sur la photo';
+      if (!wand) flashBrush();
     });
   });
+
+  // ---------- Baguette magique : interface ----------
+  // Étape 1 « Zone » : on touche la zone à effacer, on règle tolérance / élargissement.
+  // Étape 2 « Source » : on fait glisser le doigt pour déplacer la zone source dont
+  // la texture sera copiée ; le résultat s'affiche en direct.
+  var wandTol = $('#wand-tol'), wandTolOut = $('#wand-tol-out');
+  var wandGrow = $('#wand-grow'), wandGrowOut = $('#wand-grow-out');
+  var wandRaf = 0;
+
+  wandTol.value = state.wand.tol;
+  wandTolOut.textContent = (state.wand.tol / WAND_LEVELS).toFixed(2);
+  wandTol.addEventListener('input', function () {
+    state.wand.tol = parseInt(wandTol.value, 10);
+    wandTolOut.textContent = (state.wand.tol / WAND_LEVELS).toFixed(2);
+    scheduleWandRefresh();
+  });
+  wandGrow.value = state.wand.grow;
+  wandGrowOut.textContent = state.wand.grow + ' px';
+  wandGrow.addEventListener('input', function () {
+    state.wand.grow = parseInt(wandGrow.value, 10);
+    wandGrowOut.textContent = state.wand.grow + ' px';
+    scheduleWandRefresh();
+  });
+
+  document.querySelectorAll('[data-wand-step]').forEach(function (b) {
+    b.addEventListener('click', function () { wandSetStep(parseInt(b.dataset.wandStep, 10)); });
+  });
+  $('#wand-next').addEventListener('click', function () { wandSetStep(2); });
+  $('#wand-apply').addEventListener('click', wandApply);
+  $('#wand-discard').addEventListener('click', wandDiscard);
+
+  function wandSetStep(step) {
+    if (step === 2 && !state.wand.sel) return;
+    state.wand.step = step;
+    document.querySelectorAll('[data-wand-step]').forEach(function (x) {
+      x.setAttribute('aria-checked', String(parseInt(x.dataset.wandStep, 10) === step));
+    });
+    document.querySelectorAll('[data-wand-pane]').forEach(function (p) {
+      p.hidden = parseInt(p.dataset.wandPane, 10) !== step;
+    });
+    $('#wand-next').hidden = step !== 1;
+    $('#wand-apply').hidden = step !== 2;
+    $('#blur-hint').textContent = step === 1 ? 'Touchez la zone à effacer' : 'Choisissez la zone source';
+    if (step === 2) {
+      var sel = state.wand.sel;
+      wandEnsureRegion();
+      // Source par défaut juste à côté ; on garde celle choisie si elle reste valable.
+      if (sel.dx == null) {
+        var o = wandDefaultOffset(sel.a, sel.reg);
+        sel.dx = o.dx; sel.dy = o.dy;
+      }
+    }
+    scheduleWandRefresh();
+  }
+
+  function wandUpdateUI() {
+    var sel = state.wand.sel;
+    $('#wand-actions').hidden = !sel;
+    document.querySelector('[data-wand-step="2"]').disabled = !sel;
+    if (!sel) {
+      $('#wand-count').textContent = '';
+      if (state.wand.step !== 1) wandSetStep(1);
+    }
+  }
+
+  function wandSelectAt(x, y) {
+    x = Math.floor(x); y = Math.floor(y);
+    if (x < 0 || y < 0 || x >= photo.width || y >= photo.height) return;
+    var a = wandAnalyze(pctx.getImageData(0, 0, photo.width, photo.height), x, y, state.wand.tol);
+    var old = state.wand.sel;
+    state.wand.sel = {
+      a: a, reg: null, preview: old ? old.preview : null, ghost: old ? old.ghost : null,
+      dx: null, dy: null
+    };
+    wandUpdateUI();
+    updateHistoryUI();
+    wandRefresh();
+  }
+
+  // (Re)calcule la zone sélectionnée si la tolérance ou l'élargissement ont changé.
+  function wandEnsureRegion() {
+    var sel = state.wand.sel;
+    if (sel.reg && sel.reg.T === state.wand.tol && sel.reg.grow === state.wand.grow) return false;
+    sel.reg = wandRegion(sel.a, state.wand.tol, state.wand.grow);
+    // « Fantôme » de la zone source : la forme de la sélection, en jaune translucide.
+    var reg = sel.reg, gd = new Uint8ClampedArray(reg.w * reg.h * 4);
+    for (var i = 0; i < reg.list.length; i++) {
+      var j = reg.list[i] * 4;
+      gd[j] = 255; gd[j + 1] = 205; gd[j + 2] = 60; gd[j + 3] = 120;
+    }
+    var g = sel.ghost || document.createElement('canvas');
+    if (g.width !== reg.w || g.height !== reg.h) { g.width = reg.w; g.height = reg.h; }
+    g.getContext('2d').putImageData(new ImageData(gd, reg.w, reg.h), 0, 0);
+    sel.ghost = g;
+    return true;
+  }
+
+  function scheduleWandRefresh() {
+    if (wandRaf || !state.wand.sel) return;
+    wandRaf = requestAnimationFrame(function () { wandRaf = 0; wandRefresh(); });
+  }
+
+  // Met à jour l'aperçu : sélection teintée en bleu (étape 1) ou résultat (étape 2).
+  function wandRefresh() {
+    var sel = state.wand.sel;
+    if (!sel) return;
+    wandEnsureRegion();
+    var reg = sel.reg, shown;
+    sel.result = null;
+    if (state.wand.step === 2) {
+      var res = wandFill(sel.a, reg, state.wand.method, { dx: sel.dx, dy: sel.dy });
+      sel.result = res;
+      shown = res.data;
+      var hint = $('#wand-src-hint');
+      var bad = res.info && res.info.overlap > 0.02;
+      hint.classList.toggle('is-warning', !!bad);
+      hint.textContent = bad
+        ? 'La source (en jaune) touche la zone à effacer : éloignez-la un peu.'
+        : 'Glissez le doigt sur la photo pour déplacer la zone source (en jaune), ou touchez une zone de peau propre.';
+    } else {
+      shown = reg.data.slice();
+      for (var i = 0; i < reg.list.length; i++) {
+        var j = reg.list[i] * 4;
+        shown[j] = shown[j] * 0.4 + 40 * 0.6;
+        shown[j + 1] = shown[j + 1] * 0.4 + 150 * 0.6;
+        shown[j + 2] = shown[j + 2] * 0.4 + 255 * 0.6;
+      }
+    }
+    var c = sel.preview || document.createElement('canvas');
+    if (c.width !== reg.w || c.height !== reg.h) { c.width = reg.w; c.height = reg.h; }
+    c.getContext('2d').putImageData(new ImageData(shown, reg.w, reg.h), 0, 0);
+    sel.preview = c;
+    $('#wand-count').textContent = formatCount(reg.count) + ' px';
+    requestOverlay();
+  }
+
+  // Gestes de l'étape 2 : glisser = déplacer la source (relatif, le doigt peut être
+  // n'importe où) ; simple toucher = centrer la source à cet endroit.
+  function wandSourceStart(e) {
+    var sel = state.wand.sel;
+    gesture = { type: 'wand-src', x: e.clientX, y: e.clientY, dx0: sel.dx, dy0: sel.dy, moved: false };
+  }
+  function wandSourceMove(e) {
+    var g = gesture, sel = state.wand.sel;
+    if (!sel) return;
+    var mx = e.clientX - g.x, my = e.clientY - g.y;
+    if (!g.moved && Math.hypot(mx, my) < 8) return;
+    g.moved = true;
+    var k = imgPerCss();
+    sel.dx = Math.round(g.dx0 + mx * k);
+    sel.dy = Math.round(g.dy0 + my * k);
+    scheduleWandRefresh();
+  }
+  function wandSourceEnd() {
+    var g = gesture, sel = state.wand.sel;
+    if (!sel || g.moved) return;
+    var p = toImage(g.x, g.y), reg = sel.reg;
+    sel.dx = Math.round(p.x - (reg.x + reg.w / 2));
+    sel.dy = Math.round(p.y - (reg.y + reg.h / 2));
+    scheduleWandRefresh();
+  }
+
+  function wandApply() {
+    var sel = state.wand.sel;
+    if (!sel) return;
+    if (state.wand.step !== 2) { wandSetStep(2); return; } // il faut d'abord voir la source
+    if (!sel.result) wandRefresh();
+    var reg = sel.reg, res = sel.result;
+    if (res && res.info) {
+      pctx.putImageData(new ImageData(res.data, reg.w, reg.h), reg.x, reg.y);
+      pushOp({
+        type: 'wand', x: sel.a.sx, y: sel.a.sy, tol: state.wand.tol, grow: state.wand.grow,
+        method: state.wand.method, dx: sel.dx, dy: sel.dy
+      });
+      toast('Zone corrigée');
+    } else {
+      toast('Rien à remplir');
+    }
+    wandClear();
+  }
+
+  function wandDiscard() {
+    wandClear();
+  }
+
+  function wandClear() {
+    var sel = state.wand.sel;
+    if (sel) { freeCanvas(sel.preview); freeCanvas(sel.ghost); }
+    state.wand.sel = null;
+    wandUpdateUI();
+    updateHistoryUI();
+    requestOverlay();
+  }
+
+  function formatCount(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
   bindRange('#blur-grain', '#blur-grain-out', function (v) { state.blur.grain = v; });
   bindRange('#blur-size', '#blur-size-out', function (v) { state.blur.size = v; flashBrush(); });
 
@@ -1218,6 +1791,7 @@
     if (!state.loaded) return;
     if (state.stroke) endStroke();
     commitPending();
+    if (state.wand.sel) wandApply();
     // L'export est préparé ici ; le partage se fait sur un second appui
     // (Safari exige que navigator.share soit appelé directement par un geste).
     photo.toBlob(function (blob) {

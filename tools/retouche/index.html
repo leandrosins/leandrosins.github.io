@@ -66,23 +66,68 @@
     <section class="panel" id="panel" aria-live="polite">
       <!-- Floutage -->
       <div class="panel-body" data-panel="blur" hidden>
-        <div class="panel-row panel-head">
+        <div class="panel-row panel-head panel-head--wrap">
           <div class="segmented" role="radiogroup" aria-label="Type de flou">
             <button type="button" role="radio" data-blur-mode="blur" aria-checked="true">Flou</button>
             <button type="button" role="radio" data-blur-mode="pixel" aria-checked="false">Pixels</button>
+            <button type="button" role="radio" data-blur-mode="wand" aria-checked="false" aria-label="Baguette magique">
+              <svg viewBox="0 0 24 24" class="seg-icon"><path d="M4 20L15 9"/><path d="M15 4v2M15 12v2M11 8h-2M21 8h-2M18 5l-1.2 1.2M18 11l-1.2-1.2M12 5l1.2 1.2"/></svg>Baguette
+            </button>
           </div>
-          <p class="hint">Touchez ou glissez le doigt sur la photo</p>
+          <p class="hint" id="blur-hint">Touchez ou glissez le doigt sur la photo</p>
         </div>
-        <label class="slider">
-          <span class="slider-label">Grain</span>
-          <input type="range" id="blur-grain" min="1" max="10" step="1" value="5">
-          <output id="blur-grain-out">5</output>
-        </label>
-        <label class="slider">
-          <span class="slider-label">Pinceau</span>
-          <input type="range" id="blur-size" min="10" max="90" step="1" value="30">
-          <output id="blur-size-out">30</output>
-        </label>
+
+        <!-- Flou / Pixels : pinceau -->
+        <div class="panel-group" data-blur-opts="brush">
+          <label class="slider">
+            <span class="slider-label">Grain</span>
+            <input type="range" id="blur-grain" min="1" max="10" step="1" value="5">
+            <output id="blur-grain-out">5</output>
+          </label>
+          <label class="slider">
+            <span class="slider-label">Pinceau</span>
+            <input type="range" id="blur-size" min="10" max="90" step="1" value="30">
+            <output id="blur-size-out">30</output>
+          </label>
+        </div>
+
+        <!-- Baguette magique : sélection par couleur proche, puis remplissage -->
+        <div class="panel-group" data-blur-opts="wand" hidden>
+          <!-- Étapes : 1. zone à effacer, 2. zone source (texture copiée) -->
+          <div class="panel-row wand-info">
+            <div class="segmented segmented--small" role="radiogroup" aria-label="Étape">
+              <button type="button" role="radio" data-wand-step="1" aria-checked="true">① Zone</button>
+              <button type="button" role="radio" data-wand-step="2" aria-checked="false" disabled>② Source</button>
+            </div>
+            <span class="wand-label" id="wand-count"></span>
+            <div class="item-actions" id="wand-actions" hidden>
+              <button type="button" class="btn btn-ghost btn-icon-only" id="wand-discard" aria-label="Annuler la sélection">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+              <button type="button" class="btn btn-primary" id="wand-next">Source
+                <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </button>
+              <button type="button" class="btn btn-primary" id="wand-apply" hidden>
+                <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Appliquer
+              </button>
+            </div>
+          </div>
+          <div class="panel-group" data-wand-pane="1">
+            <label class="slider">
+              <span class="slider-label">Tolérance</span>
+              <input type="range" id="wand-tol" min="0" max="1000" step="1" value="150">
+              <output id="wand-tol-out" class="out-wide">0.15</output>
+            </label>
+            <label class="slider">
+              <span class="slider-label">Élargir</span>
+              <input type="range" id="wand-grow" min="0" max="12" step="1" value="2">
+              <output id="wand-grow-out" class="out-wide">2 px</output>
+            </label>
+          </div>
+          <div class="panel-group" data-wand-pane="2" hidden>
+            <p class="hint wand-src-hint" id="wand-src-hint">Glissez le doigt sur la photo pour déplacer la zone source (en jaune), ou touchez une zone de peau propre.</p>
+          </div>
+        </div>
       </div>
 
       <!-- Patch -->
