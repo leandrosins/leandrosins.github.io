@@ -105,14 +105,6 @@
   }
   function longSide() { return Math.max(state.iw, state.ih); }
 
-  var FILTER_OK = (function () {
-    try {
-      var x = document.createElement('canvas').getContext('2d');
-      x.filter = 'blur(2px)';
-      return x.filter === 'blur(2px)';
-    } catch (e) { return false; }
-  })();
-
   function smoothCtx(c) {
     var x = c.getContext('2d');
     x.imageSmoothingEnabled = true;
@@ -163,20 +155,53 @@
       o.drawImage(small, 0, 0, sw * b, sh * b);
       freeCanvas(small);
     } else {
-      var r = L * (0.002 + 0.0028 * grain);
-      if (FILTER_OK) {
-        o.drawImage(src, 0, 0);
-        o.filter = 'blur(' + r.toFixed(1) + 'px)';
-        o.drawImage(src, 0, 0);
-        o.filter = 'none';
-      } else {
-        var f = Math.max(1.5, r / 2.2);
-        var s2 = downscale(src, Math.max(1, Math.round(w / f)), Math.max(1, Math.round(h / f)));
-        upscaleInto(s2, out);
-        freeCanvas(s2);
-      }
+      // Flou gaussien approché, calculé à la main (sans ctx.filter, ignoré par Safari) :
+      // on réduit l'image, on applique 3 flous « boîte » sur cette petite version
+      // (rapide), puis on la ré-agrandit en douceur.
+      var sigma = L * (0.002 + 0.0028 * grain);
+      var f = Math.max(1, sigma / 2.45);
+      var s2 = downscale(src, Math.max(1, Math.round(w / f)), Math.max(1, Math.round(h / f)));
+      boxBlurCanvas(s2, 2, 3);
+      upscaleInto(s2, out);
+      freeCanvas(s2);
     }
     return out;
+  }
+
+  // Flou « boîte » séparable (horizontal puis vertical), répété `passes` fois.
+  function boxBlurCanvas(c, radius, passes) {
+    var w = c.width, h = c.height;
+    var x = c.getContext('2d');
+    var img = x.getImageData(0, 0, w, h);
+    var a = img.data;
+    var b = new Uint8ClampedArray(a.length);
+    for (var p = 0; p < passes; p++) {
+      boxPass(a, b, w, h, radius, 4, w * 4);   // lignes
+      boxPass(b, a, h, w, radius, w * 4, 4);   // colonnes
+    }
+    x.putImageData(img, 0, 0);
+  }
+
+  // Un passage 1D : `len` pixels par ligne, `lines` lignes ; `step` = écart entre
+  // deux pixels voisins, `lineStep` = écart entre deux lignes (en octets).
+  function boxPass(src, dst, len, lines, r, step, lineStep) {
+    var div = 2 * r + 1;
+    for (var l = 0; l < lines; l++) {
+      var base = l * lineStep;
+      for (var ch = 0; ch < 4; ch++) {
+        var sum = 0, i;
+        for (i = -r; i <= r; i++) {
+          var k = Math.min(len - 1, Math.max(0, i));
+          sum += src[base + k * step + ch];
+        }
+        for (i = 0; i < len; i++) {
+          dst[base + i * step + ch] = sum / div;
+          var out = Math.max(0, i - r);
+          var inn = Math.min(len - 1, i + r + 1);
+          sum += src[base + inn * step + ch] - src[base + out * step + ch];
+        }
+      }
+    }
   }
 
   // ---------- Trait de flou ----------
