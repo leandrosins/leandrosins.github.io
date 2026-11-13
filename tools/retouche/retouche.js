@@ -72,7 +72,8 @@
     blur: { mode: 'blur', grain: 5, size: 30 },
     // Baguette : tol = niveau 0..1000 ; `sel` = sélection en cours (non appliquée)
     // step 1 = choix de la zone à effacer, step 2 = choix de la zone source
-    wand: { tol: 150, grow: 2, step: 1, method: 'heal', sel: null },
+    // match = « raccord couleur » en % (100 = raccord au contour, 0 = teinte de la source)
+    wand: { tol: 150, grow: 2, match: 100, step: 1, method: 'heal', sel: null },
     patch: { emoji: null, size: 22 },   // taille en % du grand côté
     stamp: loadStampPrefs(),
     view: { s: 1, tx: 0, ty: 0 },
@@ -288,9 +289,12 @@
   // Extrait la zone utile : rectangle englobant la sélection, élargie de `grow` px,
   // + 1 px de marge (le contour extérieur, utilisé par le remplissage).
   // Renvoie une copie des pixels d'origine + le masque (1 = à remplacer).
+  var HALO_MAX = 40;  // px : extension automatique maximale sur le halo de l'encre
+  var HALO_BAND = 8;  // px : anneau de peau « propre » au-delà, pour la couleur de référence
+
   function wandRegion(a, T, grow) {
     wandExtend(a, T);
-    var margin = grow + 1;
+    var margin = grow + 1 + HALO_MAX + HALO_BAND;
     var x0 = Math.max(0, a.x0[T] - margin), y0 = Math.max(0, a.y0[T] - margin);
     var x1 = Math.min(a.w - 1, a.x1[T] + margin), y1 = Math.min(a.h - 1, a.y1[T] + margin);
     var rw = x1 - x0 + 1, rh = y1 - y0 + 1;
@@ -353,6 +357,22 @@
           return (Y * IW + X) * 4;
         }
 
+        // 0. Halo de l'encre : autour d'un tatouage, les pixels juste à l'extérieur de la
+        //    sélection sont encore teintés par l'encre. S'ils servaient au raccord, toute la
+        //    zone ressortirait trop sombre. On étend donc la zone traitée sur ce halo
+        //    (pixels nettement plus proches de la couleur de l'encre que la peau propre).
+        // Ne dépend que de la zone à effacer (pas de la source) : calculé une fois par
+        // sélection et mis en cache, pour que le glissement de la source reste fluide.
+        var halo = null;
+        if (c.params.seed && HALO_MAX > 0) {
+          if (c.cache && 'halo' in c.cache) halo = c.cache.halo;
+          else {
+            halo = haloExtend(d, m, w, h, c.params.seed);
+            if (c.cache) c.cache.halo = halo;
+          }
+          if (halo) { m = halo.mask; list = halo.list; }
+        }
+
         // 1. Contour extérieur : écart de couleur destination − source.
         var F = new Float32Array(n * 3);   // correction (R, V, B) par pixel
         var bIdx = [], bx = [], by = [];
@@ -363,9 +383,16 @@
             if (m[i]) continue;
             if ((x > 0 && m[i - 1]) || (x < w - 1 && m[i + 1]) || (y > 0 && m[i - w]) || (y < h - 1 && m[i + w])) {
               s = src(x, y);
-              F[i * 3] = d[i * 4] - S[s];
-              F[i * 3 + 1] = d[i * 4 + 1] - S[s + 1];
-              F[i * 3 + 2] = d[i * 4 + 2] - S[s + 2];
+              var cr = d[i * 4], cg = d[i * 4 + 1], cb = d[i * 4 + 2];
+              // Pixel encore un peu teinté par l'encre : on retire la part d'encre
+              // (« démélange ») pour retrouver la couleur de la peau à cet endroit.
+              if (halo) {
+                var un = halo.unmix(x, y, cr, cg, cb);
+                cr = un[0]; cg = un[1]; cb = un[2];
+              }
+              F[i * 3] = cr - S[s];
+              F[i * 3 + 1] = cg - S[s + 1];
+              F[i * 3 + 2] = cb - S[s + 2];
               bIdx.push(i); bx.push(x); by.push(y);
             }
           }
@@ -375,7 +402,9 @@
 
         // 2. Première approximation lisse : moyenne des écarts du contour pondérée
         //    par l'inverse de la distance (sur 256 points du contour au plus).
-        var stride = Math.max(1, Math.ceil(B / 256));
+        // (aperçu « rapide » pendant que le doigt glisse : moins de points, moins d'itérations)
+        var fast = !!c.params.fast;
+        var stride = Math.max(1, Math.ceil(B / (fast ? 48 : 256)));
         var K = Math.ceil(B / stride), kx = new Float32Array(K), ky = new Float32Array(K), kv = new Float32Array(K * 3);
         for (j = 0, s = 0; j < B; j += stride, s++) {
           kx[s] = bx[j]; ky[s] = by[j];
@@ -396,7 +425,7 @@
 
         // 3. Affinage : relaxation (Gauss-Seidel sur-relaxé) de l'équation de Laplace,
         //    pour un raccord parfait avec chaque pixel du contour.
-        var iters = L > 200000 ? 40 : 80, om = 1.85;
+        var iters = fast ? 12 : (L > 200000 ? 40 : 80), om = 1.85;
         for (var it = 0; it < iters; it++) {
           for (j = 0; j < L; j++) {
             p = list[j];
@@ -407,21 +436,23 @@
           }
         }
 
-        // 4. Résultat = texture source + correction.
+        // 4. Résultat = texture source + correction × « raccord couleur »
+        //    (1 = raccord complet au contour, 0 = teinte exacte de la source).
+        var k = c.params.match == null ? 1 : c.params.match;
         var overlap = 0;
         for (j = 0; j < L; j++) {
           p = list[j];
           x = p % w; y = (p - x) / w;
           s = src(x, y);
-          d[p * 4] = S[s] + F[p * 3];
-          d[p * 4 + 1] = S[s + 1] + F[p * 3 + 1];
-          d[p * 4 + 2] = S[s + 2] + F[p * 3 + 2];
+          d[p * 4] = S[s] + F[p * 3] * k;
+          d[p * 4 + 1] = S[s + 1] + F[p * 3 + 1] * k;
+          d[p * 4 + 2] = S[s + 2] + F[p * 3 + 2] * k;
           d[p * 4 + 3] = 255;
           // la source tombe-t-elle dans la zone à effacer ?
           var sx = x + dx, sy = y + dy;
           if (sx >= 0 && sy >= 0 && sx < w && sy < h && m[sy * w + sx]) overlap++;
         }
-        return { overlap: overlap / L };
+        return { overlap: overlap / L, mask: m };
       }
     },
 
@@ -451,6 +482,123 @@
     }
   };
 
+  // Étend le masque sur le halo de l'encre. Renvoie { mask, list } ou null.
+  //  - distances (en px) de chaque pixel à la sélection, par propagation ;
+  //  - couleur de référence « peau propre » = médiane de l'anneau situé au-delà du halo ;
+  //  - un pixel du halo est un pixel nettement plus proche de la couleur de l'encre
+  //    (seed) que ne l'est la peau propre ; on l'ajoute s'il touche la zone, couche par couche.
+  function haloExtend(d, m, w, h, seed) {
+    var n = w * h, dist = new Int16Array(n).fill(-1), queue = new Int32Array(n), qh = 0, qt = 0;
+    var i, x, y;
+    for (i = 0; i < n; i++) if (m[i]) { dist[i] = 0; queue[qt++] = i; }
+    var maxD = HALO_MAX + HALO_BAND;
+    while (qh < qt) {
+      var p = queue[qh++], dp = dist[p];
+      if (dp >= maxD) continue;
+      x = p % w; y = (p - x) / w;
+      if (x > 0 && dist[p - 1] < 0) { dist[p - 1] = dp + 1; queue[qt++] = p - 1; }
+      if (x < w - 1 && dist[p + 1] < 0) { dist[p + 1] = dp + 1; queue[qt++] = p + 1; }
+      if (y > 0 && dist[p - w] < 0) { dist[p - w] = dp + 1; queue[qt++] = p - w; }
+      if (y < h - 1 && dist[p + w] < 0) { dist[p + w] = dp + 1; queue[qt++] = p + w; }
+    }
+    // Couleur de référence « peau propre » : médiane de l'anneau [HALO_MAX + 1, HALO_MAX + HALO_BAND],
+    // calculée par secteur angulaire (16) autour de la zone, pour suivre l'éclairage local.
+    var SEC = 16, cx = 0, cy = 0, cm = 0;
+    for (i = 0; i < n; i++) if (m[i]) { x = i % w; cx += x; cy += (i - x) / w; cm++; }
+    if (!cm) return null;
+    cx /= cm; cy /= cm;
+    function sectorOf(px, py) {
+      var a = Math.atan2(py - cy, px - cx);
+      return Math.min(SEC - 1, Math.floor((a + Math.PI) / (2 * Math.PI) * SEC));
+    }
+    var hist = new Uint32Array(SEC * 3 * 256), scnt = new Uint32Array(SEC + 1);
+    var G = SEC; // index du cumul global
+    var ghist = new Uint32Array(3 * 256);
+    for (i = 0; i < n; i++) {
+      if (dist[i] <= HALO_MAX) continue;
+      x = i % w; y = (i - x) / w;
+      var sc = sectorOf(x, y), o = sc * 768;
+      hist[o + d[i * 4]]++; hist[o + 256 + d[i * 4 + 1]]++; hist[o + 512 + d[i * 4 + 2]]++; scnt[sc]++;
+      ghist[d[i * 4]]++; ghist[256 + d[i * 4 + 1]]++; ghist[512 + d[i * 4 + 2]]++; scnt[G]++;
+    }
+    if (!scnt[G]) return null;
+    var glob = [histMedian(ghist.subarray(0, 256), scnt[G]), histMedian(ghist.subarray(256, 512), scnt[G]),
+                histMedian(ghist.subarray(512), scnt[G])];
+    var refs = [], Ds = new Float32Array(SEC);
+    for (var k = 0; k < SEC; k++) {
+      var nk = scnt[k], o2 = k * 768;
+      var rf = nk >= 30
+        ? [histMedian(hist.subarray(o2, o2 + 256), nk), histMedian(hist.subarray(o2 + 256, o2 + 512), nk),
+           histMedian(hist.subarray(o2 + 512, o2 + 768), nk)]
+        : glob;
+      refs.push(rf);
+      Ds[k] = Math.hypot(rf[0] - seed[0], rf[1] - seed[1], rf[2] - seed[2]);
+    }
+    var Dg = Math.hypot(glob[0] - seed[0], glob[1] - seed[1], glob[2] - seed[2]);
+    if (Dg < 40) return null; // encre trop proche de la peau : pas de halo identifiable
+
+    // Couleur moyennée sur 5×5 px (images intégrales) : le grain de la peau est gommé,
+    // ce qui permet de mesurer précisément une faible part d'encre.
+    var R5 = 2, ii = new Float64Array((w + 1) * (h + 1) * 3);
+    for (y = 0; y < h; y++) {
+      var ar = 0, ag = 0, ab = 0;
+      for (x = 0; x < w; x++) {
+        var q = (y * w + x) * 4;
+        ar += d[q]; ag += d[q + 1]; ab += d[q + 2];
+        var t = ((y + 1) * (w + 1) + x + 1) * 3, u = (y * (w + 1) + x + 1) * 3;
+        ii[t] = ii[u] + ar; ii[t + 1] = ii[u + 1] + ag; ii[t + 2] = ii[u + 2] + ab;
+      }
+    }
+    function smooth(px, py) {
+      var xa = Math.max(0, px - R5), xb = Math.min(w, px + R5 + 1);
+      var ya = Math.max(0, py - R5), yb = Math.min(h, py + R5 + 1);
+      var A = (ya * (w + 1) + xa) * 3, Bq = (ya * (w + 1) + xb) * 3, C = (yb * (w + 1) + xa) * 3, Dq = (yb * (w + 1) + xb) * 3;
+      var area = (xb - xa) * (yb - ya);
+      return [(ii[Dq] - ii[Bq] - ii[C] + ii[A]) / area,
+              (ii[Dq + 1] - ii[Bq + 1] - ii[C + 1] + ii[A + 1]) / area,
+              (ii[Dq + 2] - ii[Bq + 2] - ii[C + 2] + ii[A + 2]) / area];
+    }
+    // part d'encre estimée d'un pixel (0 = peau propre, 1 = encre pure)
+    function inkAt(px, py) {
+      var D = Ds[sectorOf(px, py)];
+      if (D < 40) return 0;
+      var sm = smooth(px, py);
+      return 1 - Math.hypot(sm[0] - seed[0], sm[1] - seed[1], sm[2] - seed[2]) / D;
+    }
+
+    var out = m.slice();
+    for (var layer = 1; layer <= HALO_MAX; layer++) {
+      var added = 0;
+      for (i = 0; i < n; i++) {
+        if (dist[i] !== layer || out[i]) continue;
+        x = i % w; y = (i - x) / w;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) continue; // garder un contour
+        if (!(out[i - 1] || out[i + 1] || out[i - w] || out[i + w])) continue;
+        // encore au moins 4 % d'encre (mesuré sur la couleur moyennée) → halo
+        if (inkAt(x, y) > 0.04) { out[i] = 1; added++; }
+      }
+      if (!added) break; // plus de halo : on s'arrête
+    }
+    var list = [];
+    for (i = 0; i < n; i++) if (out[i]) list.push(i);
+
+    return {
+      mask: out,
+      list: Int32Array.from(list),
+      // Retire la part d'encre d'un pixel : pixel = (1 − α)·peau + α·encre,
+      // avec α estimé d'après sa distance à l'encre comparée à celle de la peau propre.
+      unmix: function (px, py, r, g, b) {
+        // part d'encre mesurée sur la couleur moyennée (insensible au grain),
+        // retirée du pixel réel (dont on garde ainsi le grain)
+        var alpha = inkAt(px, py);
+        if (alpha <= 0.01) return [r, g, b];
+        if (alpha > 0.7) alpha = 0.7;
+        var inv = 1 / (1 - alpha);
+        return [(r - alpha * seed[0]) * inv, (g - alpha * seed[1]) * inv, (b - alpha * seed[2]) * inv];
+      }
+    };
+  }
+
   function histMedian(hist, n) {
     var half = n / 2, acc = 0;
     for (var v = 0; v < 256; v++) { acc += hist[v]; if (acc >= half) return v; }
@@ -463,7 +611,7 @@
     var out = reg.data.slice();
     var info = m.fill({
       data: out, mask: reg.mask, list: reg.list, w: reg.w, h: reg.h, x: reg.x, y: reg.y,
-      image: a.image, params: params || {}
+      image: a.image, params: params || {}, cache: reg.cache || (reg.cache = {})
     });
     return { data: out, info: info };
   }
@@ -487,7 +635,9 @@
   // Calcul complet à partir d'une opération enregistrée (pour rejouer l'historique).
   function wandCompute(a, op) {
     var reg = wandRegion(a, op.tol, op.grow || 0);
-    var res = wandFill(a, reg, op.method, { dx: op.dx, dy: op.dy });
+    var res = wandFill(a, reg, op.method, {
+      dx: op.dx, dy: op.dy, seed: a.seed, match: op.match == null ? 1 : op.match
+    });
     reg.result = res.data;
     reg.info = res.info;
     return reg;
@@ -1140,7 +1290,7 @@
     if (!g) return;
     if (g.type === 'stroke') cancelStroke();
     if (g.type === 'wand-src' && state.wand.sel) {
-      state.wand.sel.dx = g.dx0; state.wand.sel.dy = g.dy0;
+      state.wand.sel.dx = g.dx0; state.wand.sel.dy = g.dy0; state.wand.sel.fast = false;
       scheduleWandRefresh();
     }
     if ((g.type === 'move' || g.type === 'handle') && state.pending) {
@@ -1459,6 +1609,15 @@
     scheduleWandRefresh();
   });
 
+  var wandMatch = $('#wand-match'), wandMatchOut = $('#wand-match-out');
+  wandMatch.value = state.wand.match;
+  wandMatchOut.textContent = state.wand.match + ' %';
+  wandMatch.addEventListener('input', function () {
+    state.wand.match = parseInt(wandMatch.value, 10);
+    wandMatchOut.textContent = state.wand.match + ' %';
+    scheduleWandRefresh();
+  });
+
   document.querySelectorAll('[data-wand-step]').forEach(function (b) {
     b.addEventListener('click', function () { wandSetStep(parseInt(b.dataset.wandStep, 10)); });
   });
@@ -1545,7 +1704,10 @@
     var reg = sel.reg, shown;
     sel.result = null;
     if (state.wand.step === 2) {
-      var res = wandFill(sel.a, reg, state.wand.method, { dx: sel.dx, dy: sel.dy });
+      var res = wandFill(sel.a, reg, state.wand.method, {
+        dx: sel.dx, dy: sel.dy, seed: sel.a.seed, match: state.wand.match / 100, fast: !!sel.fast
+      });
+      res.fast = !!sel.fast;
       sel.result = res;
       shown = res.data;
       var hint = $('#wand-src-hint');
@@ -1583,6 +1745,7 @@
     var mx = e.clientX - g.x, my = e.clientY - g.y;
     if (!g.moved && Math.hypot(mx, my) < 8) return;
     g.moved = true;
+    sel.fast = true; // aperçu allégé pendant le geste
     var k = imgPerCss();
     sel.dx = Math.round(g.dx0 + mx * k);
     sel.dy = Math.round(g.dy0 + my * k);
@@ -1590,7 +1753,9 @@
   }
   function wandSourceEnd() {
     var g = gesture, sel = state.wand.sel;
-    if (!sel || g.moved) return;
+    if (!sel) return;
+    sel.fast = false; // doigt levé : calcul complet
+    if (g.moved) { scheduleWandRefresh(); return; }
     var p = toImage(g.x, g.y), reg = sel.reg;
     sel.dx = Math.round(p.x - (reg.x + reg.w / 2));
     sel.dy = Math.round(p.y - (reg.y + reg.h / 2));
@@ -1601,13 +1766,14 @@
     var sel = state.wand.sel;
     if (!sel) return;
     if (state.wand.step !== 2) { wandSetStep(2); return; } // il faut d'abord voir la source
-    if (!sel.result) wandRefresh();
+    // on applique toujours le calcul complet (jamais l'aperçu allégé)
+    if (!sel.result || sel.result.fast) { sel.fast = false; wandRefresh(); }
     var reg = sel.reg, res = sel.result;
     if (res && res.info) {
       pctx.putImageData(new ImageData(res.data, reg.w, reg.h), reg.x, reg.y);
       pushOp({
         type: 'wand', x: sel.a.sx, y: sel.a.sy, tol: state.wand.tol, grow: state.wand.grow,
-        method: state.wand.method, dx: sel.dx, dy: sel.dy
+        method: state.wand.method, dx: sel.dx, dy: sel.dy, match: state.wand.match / 100
       });
       toast('Zone corrigée');
     } else {
