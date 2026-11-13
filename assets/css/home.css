@@ -48,16 +48,32 @@ body {
 
 .home-header { text-align: center; margin-bottom: 36px; }
 
+/* Avatar rond façon photo de profil Twitter / X : photo recadrée dans un cercle,
+   entourée d'un anneau de la couleur du fond. */
 .logo {
-  width: 72px;
-  height: 72px;
+  width: 112px;
+  height: 112px;
   margin: 0 auto 18px;
-  border-radius: 20px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(145deg, #1e2433, #11141c);
-  border: 1px solid var(--border);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid var(--bg);
+  outline: 1px solid var(--border);
+  background: var(--card);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.tagline a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
 }
 
 h1 {
