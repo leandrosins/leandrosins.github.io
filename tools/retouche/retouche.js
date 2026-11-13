@@ -442,6 +442,7 @@
       pctx.drawImage(base, 0, 0);
       state.loaded = true;
       state.view = { s: 1, tx: 0, ty: 0 };
+      state.initialView = true;
 
       $('#empty').hidden = true;
       wrap.hidden = false;
@@ -460,16 +461,43 @@
   }
 
   // ---------- Mise en page / zoom ----------
+  var topbar = $('#topbar');
+  var bottomBars = $('#bottom-bars');
+  var toolbar = $('#toolbar');
+
+  // Hauteurs des barres qui flottent au-dessus de la photo.
+  function insets() {
+    return { top: topbar.offsetHeight, bottom: bottomBars.offsetHeight, toolbar: toolbar.offsetHeight };
+  }
+
+  // Échelle (relative au cadrage « photo entière ») qui fait remplir la largeur de l'écran.
+  function fillScale() {
+    return state.fit.w ? Math.max(1, stage.clientWidth / state.fit.w) : 1;
+  }
+
   function layout() {
+    var ins = insets();
+    var root = document.documentElement.style;
+    root.setProperty('--top-h', ins.top + 'px');
+    root.setProperty('--bottom-h', ins.bottom + 'px');
     if (!state.loaded) return;
-    var sw = stage.clientWidth, sh = stage.clientHeight, m = 12;
-    var k = Math.min((sw - m * 2) / state.iw, (sh - m * 2) / state.ih);
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    // Cadrage de base (zoom 1) : photo entière entre la barre du haut et la barre d'outils.
+    var availH = Math.max(1, sh - ins.top - ins.toolbar);
+    var k = Math.min(sw / state.iw, availH / state.ih);
     var w = Math.max(1, Math.floor(state.iw * k)), h = Math.max(1, Math.floor(state.ih * k));
-    state.fit = { left: Math.round((sw - w) / 2), top: Math.round((sh - h) / 2), w: w, h: h };
+    state.fit = { left: Math.round((sw - w) / 2), top: Math.round(ins.top + (availH - h) / 2), w: w, h: h };
     wrap.style.left = state.fit.left + 'px';
     wrap.style.top = state.fit.top + 'px';
     wrap.style.width = w + 'px';
     wrap.style.height = h + 'px';
+    if (state.initialView) {
+      // Au chargement : la photo remplit toute la largeur, centrée verticalement.
+      state.initialView = false;
+      state.view.s = fillScale();
+      state.view.tx = -state.fit.left;
+      state.view.ty = (ins.top + sh - ins.bottom) / 2 - h * state.view.s / 2 - state.fit.top;
+    }
     clampView();
     applyView();
     resizeOverlay();
@@ -488,31 +516,50 @@
 
   function clampView() {
     var v = state.view, f = state.fit, sw = stage.clientWidth, sh = stage.clientHeight;
+    var ins = insets();
     v.s = Math.min(8, Math.max(1, v.s));
-    if (v.s <= 1.001) { v.s = 1; v.tx = 0; v.ty = 0; return; }
-    function axis(t, left, size, avail) {
+    // Zone visible entre les barres : la photo peut passer dessous, mais on doit
+    // toujours pouvoir amener chacun de ses bords dans cette zone.
+    function axis(t, origin, size, a0, a1) {
       var scaled = size * v.s;
-      if (scaled <= avail) return (avail - scaled) / 2 - left;
-      return Math.min(-left, Math.max(avail - scaled - left, t));
+      if (scaled <= a1 - a0) return a0 + (a1 - a0 - scaled) / 2 - origin;
+      return Math.min(a0 - origin, Math.max(a1 - scaled - origin, t));
     }
-    v.tx = axis(v.tx, f.left, f.w, sw);
-    v.ty = axis(v.ty, f.top, f.h, sh);
+    v.tx = axis(v.tx, f.left, f.w, 0, sw);
+    v.ty = axis(v.ty, f.top, f.h, ins.top, sh - ins.bottom);
   }
 
   function applyView() {
     var v = state.view;
     wrap.style.transform = 'translate(' + v.tx + 'px,' + v.ty + 'px) scale(' + v.s + ')';
-    zoomResetBtn.hidden = v.s <= 1;
+    var fs = fillScale();
+    var zoomedIn = v.s > 1.02;
+    zoomResetBtn.textContent = zoomedIn ? 'Voir tout' : 'Plein écran';
+    zoomResetBtn.hidden = !state.loaded || (!zoomedIn && fs <= 1.02);
   }
 
   zoomResetBtn.addEventListener('click', function () {
-    state.view = { s: 1, tx: 0, ty: 0 };
+    var v = state.view;
+    if (v.s > 1.02) {
+      v.s = 1;
+    } else {
+      var ins = insets();
+      var cy = (ins.top + stage.clientHeight - ins.bottom) / 2;
+      var ly = (cy - state.fit.top - v.ty) / v.s;
+      v.s = fillScale();
+      v.tx = -state.fit.left;
+      v.ty = cy - state.fit.top - ly * v.s;
+    }
+    clampView();
     applyView();
     resizeOverlay();
   });
 
   if (window.ResizeObserver) {
-    new ResizeObserver(function () { layout(); }).observe(stage);
+    var ro = new ResizeObserver(function () { layout(); });
+    ro.observe(stage);
+    ro.observe(bottomBars);
+    ro.observe(topbar);
   } else {
     window.addEventListener('resize', layout);
   }
@@ -521,6 +568,11 @@
   function toImage(cx, cy) {
     var r = photo.getBoundingClientRect();
     return { x: (cx - r.left) * state.iw / r.width, y: (cy - r.top) * state.ih / r.height };
+  }
+  // Centre (coordonnées écran) de la zone visible entre les barres.
+  function visibleCenter() {
+    var sr = stage.getBoundingClientRect(), ins = insets();
+    return { x: sr.left + sr.width / 2, y: sr.top + (ins.top + sr.height - ins.bottom) / 2 };
   }
   // Pixels image par pixel écran (tient compte du zoom).
   function imgPerCss() {
@@ -597,8 +649,8 @@
   function flashBrush() {
     var r = photo.getBoundingClientRect();
     var c = toImage(r.left + r.width / 2, r.top + r.height / 2);
-    var sr = stage.getBoundingClientRect();
-    var vis = toImage(sr.left + sr.width / 2, sr.top + sr.height / 2);
+    var vc = visibleCenter();
+    var vis = toImage(vc.x, vc.y);
     var x = Math.min(state.iw, Math.max(0, vis.x || c.x)), y = Math.min(state.ih, Math.max(0, vis.y || c.y));
     state.brushPreview = { x: x, y: y, r: state.blur.size * imgPerCss() };
     requestOverlay();
@@ -618,8 +670,8 @@
 
   function defaultCenter() {
     // Centre de la partie visible de la photo.
-    var sr = stage.getBoundingClientRect();
-    var p = toImage(sr.left + sr.width / 2, sr.top + sr.height / 2);
+    var vc = visibleCenter();
+    var p = toImage(vc.x, vc.y);
     return { x: Math.min(state.iw * 0.95, Math.max(state.iw * 0.05, p.x)), y: Math.min(state.ih * 0.95, Math.max(state.ih * 0.05, p.y)) };
   }
 
@@ -663,8 +715,12 @@
     if (!state.loaded || state.pending || !state.stamp.text.trim()) return;
     // Par défaut : en bas de la photo (place habituelle d'une signature),
     // ou au centre de la zone visible si l'on est zoomé.
-    var c = state.view.s > 1 ? defaultCenter() : { x: state.iw / 2, y: state.ih * 0.86 };
-    setPending(makeStampItem(c.x, c.y));
+    var c = defaultCenter();
+    var sr = stage.getBoundingClientRect(), ins = insets();
+    var visH = sr.height - ins.top - ins.bottom;
+    var low = toImage(sr.left + sr.width / 2, sr.top + sr.height - ins.bottom - visH * 0.15);
+    var y = Math.min(state.ih * 0.92, Math.max(state.ih * 0.08, low.y));
+    setPending(makeStampItem(c.x, y));
   }
 
   function syncPendingFromStamp() {
@@ -703,16 +759,34 @@
     if (pointers.size === 1) {
       startSingle(e);
     } else if (pointers.size === 2) {
-      if (gesture && gesture.type === 'stroke') cancelStroke();
+      // Deux doigts = déplacement / zoom de la photo, quel que soit l'outil :
+      // on annule ce que le premier doigt avait commencé.
+      abortSingle();
       startPinch();
     }
+  }
+
+  function abortSingle() {
+    var g = gesture;
+    if (!g) return;
+    if (g.type === 'stroke') cancelStroke();
+    if ((g.type === 'move' || g.type === 'handle') && state.pending) {
+      if (g.created) {
+        setPending(null);
+      } else if (g.start) {
+        var it = state.pending;
+        it.x = g.start.x; it.y = g.start.y; it.size = g.start.size; it.rot = g.start.rot;
+      }
+    }
+    state.brushPreview = null;
+    requestOverlay();
   }
 
   function onMove(e) {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!gesture) return;
-    if (gesture.type === 'pinch-view' || gesture.type === 'pinch-item') {
+    if (gesture.type === 'pinch-view') {
       movePinch();
     } else {
       moveSingle(e);
@@ -727,15 +801,16 @@
     }
     if (pointers.size === 0) {
       if (gesture && gesture.type === 'pinch-view') resizeOverlay();
-      if (gesture && (gesture.type === 'pinch-item' || gesture.type === 'handle')) syncSizeSliders();
+      if (gesture && gesture.type === 'handle') syncSizeSliders();
       gesture = null;
       state.brushPreview = null;
       requestOverlay();
-    } else if (gesture && gesture.type !== 'none' && pointers.size === 1) {
-      // Fin d'un pincement avec un doigt encore posé : on ne démarre rien.
-      if (gesture.type === 'pinch-view') resizeOverlay();
-      if (gesture.type === 'pinch-item') syncSizeSliders();
-      gesture = { type: 'none' };
+    } else if (gesture && gesture.type === 'pinch-view' && pointers.size === 1) {
+      // Fin du pincement avec un doigt encore posé : il continue de déplacer la photo,
+      // mais n'active jamais l'outil.
+      resizeOverlay();
+      var rest = pointers.values().next().value;
+      gesture = { type: 'pan', x: rest.x, y: rest.y, tx: state.view.tx, ty: state.view.ty };
     }
   }
 
@@ -756,12 +831,13 @@
     if (state.tool === 'patch' || state.tool === 'stamp') {
       var it = state.pending;
       if (it) {
+        var start = { x: it.x, y: it.y, size: it.size, rot: it.rot };
         var corners = itemCorners(it);
         var h = corners[2];
         var dh = Math.hypot(p.x - h[0], p.y - h[1]);
         if (dh < 26 * k) {
           gesture = {
-            type: 'handle',
+            type: 'handle', start: start,
             d0: Math.max(1, Math.hypot(p.x - it.x, p.y - it.y)),
             a0: Math.atan2(p.y - it.y, p.x - it.x),
             size0: it.size, rot0: it.rot
@@ -769,11 +845,11 @@
           return;
         }
         if (hitItem(it, p, 14 * k)) {
-          gesture = { type: 'move', dx: it.x - p.x, dy: it.y - p.y };
+          gesture = { type: 'move', start: start, dx: it.x - p.x, dy: it.y - p.y };
           return;
         }
         it.x = p.x; it.y = p.y;
-        gesture = { type: 'move', dx: 0, dy: 0 };
+        gesture = { type: 'move', start: start, dx: 0, dy: 0 };
         requestOverlay();
         return;
       }
@@ -790,7 +866,7 @@
         }
         setPending(makeStampItem(p.x, p.y));
       }
-      gesture = { type: 'move', dx: 0, dy: 0 };
+      gesture = { type: 'move', created: true, dx: 0, dy: 0 };
       return;
     }
 
@@ -818,7 +894,7 @@
       clampSize(it);
       it.rot = snapAngle(g.rot0 + a - g.a0);
       requestOverlay();
-    } else if (g.type === 'pan' && state.view.s > 1) {
+    } else if (g.type === 'pan') {
       state.view.tx = g.tx + e.clientX - g.x;
       state.view.ty = g.ty + e.clientY - g.y;
       clampView();
@@ -852,33 +928,18 @@
 
   function startPinch() {
     var t = twoPointers();
-    var it = state.pending;
-    if (it && (state.tool === 'patch' || state.tool === 'stamp')) {
-      var m = toImage(t.mx, t.my);
-      gesture = { type: 'pinch-item', t0: t, size0: it.size, rot0: it.rot, x0: it.x, y0: it.y, m0: m };
-    } else {
-      var sr = stage.getBoundingClientRect();
-      var v = state.view, f = state.fit;
-      // point local (non zoomé) sous le centre des doigts
-      var lx = (t.mx - sr.left - f.left - v.tx) / v.s;
-      var ly = (t.my - sr.top - f.top - v.ty) / v.s;
-      gesture = { type: 'pinch-view', t0: t, s0: v.s, lx: lx, ly: ly };
-    }
+    var sr = stage.getBoundingClientRect();
+    var v = state.view, f = state.fit;
+    // point local (non zoomé) sous le centre des doigts
+    var lx = (t.mx - sr.left - f.left - v.tx) / v.s;
+    var ly = (t.my - sr.top - f.top - v.ty) / v.s;
+    gesture = { type: 'pinch-view', t0: t, s0: v.s, lx: lx, ly: ly };
   }
 
   function movePinch() {
     if (pointers.size < 2) return;
     var t = twoPointers(), g = gesture;
-    if (g.type === 'pinch-item' && state.pending) {
-      var it = state.pending;
-      it.size = g.size0 * t.d / g.t0.d;
-      clampSize(it);
-      it.rot = snapAngle(g.rot0 + t.a - g.t0.a);
-      var m = toImage(t.mx, t.my);
-      it.x = Math.min(state.iw, Math.max(0, g.x0 + m.x - g.m0.x));
-      it.y = Math.min(state.ih, Math.max(0, g.y0 + m.y - g.m0.y));
-      requestOverlay();
-    } else if (g.type === 'pinch-view') {
+    if (g.type === 'pinch-view') {
       var sr = stage.getBoundingClientRect();
       var v = state.view, f = state.fit;
       v.s = Math.min(8, Math.max(1, g.s0 * t.d / g.t0.d));
@@ -951,8 +1012,12 @@
     if (state.tool === 'blur') setTimeout(flashBrush, 60);
   }
 
+  // « Appliquer » : on fixe l'élément sur la photo puis on referme l'outil.
   document.querySelectorAll('[data-action="apply"]').forEach(function (b) {
-    b.addEventListener('click', commitPending);
+    b.addEventListener('click', function () {
+      commitPending();
+      if (state.tool) selectTool(state.tool);
+    });
   });
   document.querySelectorAll('[data-action="discard"]').forEach(function (b) {
     b.addEventListener('click', discardPending);
@@ -1189,4 +1254,5 @@
   }
 
   updateHistoryUI();
+  layout();
 })();

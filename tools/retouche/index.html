@@ -19,7 +19,7 @@
 <body>
   <div class="app" id="app">
     <!-- Barre du haut -->
-    <header class="topbar">
+    <header class="topbar" id="topbar">
       <div class="topbar-left">
         <a class="icon-btn" href="../../index.html" aria-label="Retour à l'accueil">
           <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
@@ -57,11 +57,12 @@
         <canvas id="overlay"></canvas>
       </div>
 
-      <button class="zoom-reset" id="btn-zoom-reset" type="button" hidden>Ajuster</button>
+      <button class="zoom-reset" id="btn-zoom-reset" type="button" hidden>Voir tout</button>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </main>
 
-    <!-- Options de l'outil actif -->
+    <!-- Barres du bas (options de l'outil actif + outils), par-dessus la photo -->
+    <div class="bottom-bars" id="bottom-bars">
     <section class="panel" id="panel" aria-live="polite">
       <!-- Floutage -->
       <div class="panel-body" data-panel="blur" hidden>
@@ -153,6 +154,7 @@
         <span>Sauvegarder</span>
       </button>
     </nav>
+    </div>
   </div>
 
   <!-- Feuille d'export -->

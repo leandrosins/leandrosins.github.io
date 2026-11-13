@@ -11,6 +11,9 @@
   --accent-ink: #0b0d12;
   --danger: #ff6b6b;
   --radius: 14px;
+  --bar-bg: rgba(11, 13, 18, 0.7);
+  --top-h: 56px;    /* mis à jour par le JS */
+  --bottom-h: 70px; /* mis à jour par le JS */
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
@@ -61,14 +64,17 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 }
 
 .topbar {
-  flex: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 10px) 6px calc(var(--safe-left) + 10px);
   min-height: calc(var(--safe-top) + 56px);
-  background: var(--bg);
-  border-bottom: 1px solid #161a24;
+  background: var(--bar-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 5;
 }
 
@@ -101,10 +107,10 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 .history .icon-btn:not(:disabled) { background: var(--surface); }
 
 /* ---------- Scène ---------- */
+/* La photo occupe tout l'écran ; les barres flottent par-dessus. */
 .stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   background: var(--stage);
   touch-action: none;
@@ -118,7 +124,7 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
   align-items: center;
   justify-content: center;
   gap: 18px;
-  padding: 24px;
+  padding: calc(var(--top-h) + 24px) 24px calc(var(--bottom-h) + 24px);
   text-align: center;
 }
 
@@ -140,7 +146,6 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
   position: absolute;
   transform-origin: 0 0;
   will-change: transform;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
 .canvas-wrap canvas {
@@ -154,7 +159,7 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 
 .zoom-reset {
   position: absolute;
-  top: 10px;
+  top: calc(var(--top-h) + 10px);
   right: calc(var(--safe-right) + 10px);
   padding: 8px 14px;
   border-radius: 999px;
@@ -169,7 +174,7 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: calc(var(--bottom-h) + 14px);
   transform: translate(-50%, 20px);
   padding: 9px 16px;
   border-radius: 999px;
@@ -186,11 +191,20 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 }
 .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Barres du bas ---------- */
+.bottom-bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  background: var(--bar-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 /* ---------- Panneau d'options ---------- */
 .panel {
-  flex: none;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding: 0 calc(var(--safe-right) + 14px) 0 calc(var(--safe-left) + 14px);
 }
 .panel:not(.is-open) { display: none; }
@@ -365,13 +379,10 @@ input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; border-radius
 
 /* ---------- Barre d'outils ---------- */
 .toolbar {
-  flex: none;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding: 6px calc(var(--safe-right) + 8px) calc(var(--safe-bottom) + 6px) calc(var(--safe-left) + 8px);
-  background: var(--bg);
-  border-top: 1px solid #161a24;
 }
 
 .tool {
