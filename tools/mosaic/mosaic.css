@@ -162,7 +162,7 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
 }
 .setup-sub svg { width: 18px; height: 18px; }
 
-.count-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.count-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .count-picker button {
   min-height: 72px;
   border-radius: 18px;

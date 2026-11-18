@@ -8,6 +8,9 @@
   // Unités : chaque case = [x, y, largeur, hauteur] dans une grille cols × rows de carrés.
   // Les cases sont listées dans l'ordre de lecture (ordre de remplissage des photos).
   var LAYOUTS = [
+    // 2 photos
+    { id: 'p2-sq', n: 2, o: 'p', cols: 1, rows: 2, cells: [[0, 0, 1, 1], [0, 1, 1, 1]] },
+    { id: 'l2-sq', n: 2, o: 'l', cols: 2, rows: 1, cells: [[0, 0, 1, 1], [1, 0, 1, 1]] },
     // 4 photos — portrait
     { id: 'p4-rect', n: 4, o: 'p', cols: 2, rows: 4, cells: [[0, 0, 1, 2], [1, 0, 1, 2], [0, 2, 1, 2], [1, 2, 1, 2]] },
     { id: 'p4-mix', n: 4, o: 'p', cols: 2, rows: 3, cells: [[0, 0, 1, 1], [1, 0, 1, 2], [0, 1, 1, 2], [1, 2, 1, 1]] },
