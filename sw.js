@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v9';
+var VERSION = 'v10';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -16,7 +16,11 @@ var FILES = [
   'tools/retouche/',
   'tools/retouche/index.html',
   'tools/retouche/retouche.css',
-  'tools/retouche/retouche.js'
+  'tools/retouche/retouche.js',
+  'tools/mosaic/',
+  'tools/mosaic/index.html',
+  'tools/mosaic/mosaic.css',
+  'tools/mosaic/mosaic.js'
 ];
 
 self.addEventListener('install', function (event) {
