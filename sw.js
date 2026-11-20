@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v11';
+var VERSION = 'v12';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -20,7 +20,12 @@ var FILES = [
   'tools/mosaic/',
   'tools/mosaic/index.html',
   'tools/mosaic/mosaic.css',
-  'tools/mosaic/mosaic.js'
+  'tools/mosaic/mosaic.js',
+  'tools/gif/',
+  'tools/gif/index.html',
+  'tools/gif/gif.css',
+  'tools/gif/gif.js',
+  'tools/gif/gif-worker.js'
 ];
 
 self.addEventListener('install', function (event) {
