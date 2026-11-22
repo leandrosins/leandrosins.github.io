@@ -1,4 +1,4 @@
-/* Impressionne moi : fait tourner le moteur hors du fil principal (l'écran reste fluide). */
+/* Impressionne-moi le corps : fait tourner le moteur hors du fil principal (l'écran reste fluide). */
 'use strict';
 
 importScripts('paint-engine.js');

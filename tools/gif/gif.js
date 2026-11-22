@@ -1,4 +1,4 @@
-/* Gif Maker — vidéo → GIF animé, 100 % local (aucune ressource externe). */
+/* GIF-moi encore — vidéo → GIF animé, 100 % local (aucune ressource externe). */
 (function () {
   'use strict';
 

@@ -1,4 +1,4 @@
-/* Impressionne moi : moteur de peinture par coups de pinceau, écrit à la main (aucune dépendance).
+/* Impressionne-moi le corps : moteur de peinture par coups de pinceau, écrit à la main (aucune dépendance).
  *
  *   PaintEngine.paint({ data, w, h }, { abstraction, focus, seed }, onLayer) → { data, w, h, strokes }
  *

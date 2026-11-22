@@ -1,4 +1,4 @@
-/* Mozaïc-Me — mosaïque de photos, 100 % locale (aucune ressource externe). */
+/* Mozaïc-moi plus fort — mosaïque de photos, 100 % locale (aucune ressource externe). */
 (function () {
   'use strict';
 

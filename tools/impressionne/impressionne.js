@@ -1,4 +1,4 @@
-/* Impressionne moi : interface. 100 % local (aucune ressource externe). */
+/* Impressionne-moi le corps : interface. 100 % local (aucune ressource externe). */
 (function () {
   'use strict';
 

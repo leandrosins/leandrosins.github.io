@@ -73,18 +73,21 @@ button { -webkit-appearance: none; appearance: none; background: none; border: 0
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 6;
 }
-.topbar-left, .topbar-right { display: flex; gap: 4px; flex: 1; }
+.topbar-left, .topbar-right { display: flex; gap: 4px; flex: 1 0 92px; }
 .topbar-right { justify-content: flex-end; }
 
 .title {
   margin: 0;
+  min-width: 0;
   font-size: 16px;
   font-weight: 650;
+  line-height: 1.15;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
+  text-wrap: balance; /* nom long : deux lignes équilibrées */
 }
+.title .nowrap { white-space: nowrap; }
+@media (max-width: 359px) { .title { font-size: 12px; } }
 
 .icon-btn {
   width: 44px;

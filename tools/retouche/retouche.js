@@ -1,4 +1,4 @@
-/* Easy Retouche-moi — retouche photo 100 % locale.
+/* Retouche-moi plus bas — retouche photo 100 % locale.
  * Tout se passe dans des <canvas> du navigateur : aucune donnée ne sort de l'appareil.
  *
  * Historique : la photo d'origine est conservée ; chaque retouche validée devient une

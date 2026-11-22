@@ -9,7 +9,7 @@ police distante, pas de requête réseau. Une fois la page visitée, le site fon
 
 | Outil | Dossier | Description |
 | --- | --- | --- |
-| Easy Retouche-moi | `tools/retouche/` | Flouter / pixeliser une zone, coller un émoji, apposer un tampon texte, enregistrer dans Photos. |
+| Retouche-moi plus bas | `tools/retouche/` | Flouter / pixeliser une zone, coller un émoji, apposer un tampon texte, enregistrer dans Photos. |
 
 ## Structure
 

@@ -1,4 +1,4 @@
-/* Gif Maker — encodeur GIF (Web Worker), écrit à la main : aucune bibliothèque externe.
+/* GIF-moi encore — encodeur GIF (Web Worker), écrit à la main : aucune bibliothèque externe.
  *
  * Reçoit : { frames: [ArrayBuffer RGBA], w, h, delay (centièmes de s), maxBytes, gray }
  * Renvoie : { type: 'progress', p } … puis { type: 'done', buffer, w, h, frames } ou { type: 'error' }.
