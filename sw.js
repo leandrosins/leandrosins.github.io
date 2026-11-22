@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v12';
+var VERSION = 'v14';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -25,7 +25,13 @@ var FILES = [
   'tools/gif/index.html',
   'tools/gif/gif.css',
   'tools/gif/gif.js',
-  'tools/gif/gif-worker.js'
+  'tools/gif/gif-worker.js',
+  'tools/impressionne/',
+  'tools/impressionne/index.html',
+  'tools/impressionne/impressionne.css',
+  'tools/impressionne/impressionne.js',
+  'tools/impressionne/paint-engine.js',
+  'tools/impressionne/paint-worker.js'
 ];
 
 self.addEventListener('install', function (event) {
