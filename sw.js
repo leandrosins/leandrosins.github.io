@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v16';
+var VERSION = 'v18';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -31,7 +31,13 @@ var FILES = [
   'tools/impressionne/impressionne.css',
   'tools/impressionne/impressionne.js',
   'tools/impressionne/paint-engine.js',
-  'tools/impressionne/paint-worker.js'
+  'tools/impressionne/paint-worker.js',
+  'tools/croque/',
+  'tools/croque/index.html',
+  'tools/croque/croque.css',
+  'tools/croque/croque.js',
+  'tools/croque/sketch-engine.js',
+  'tools/croque/sketch-worker.js'
 ];
 
 self.addEventListener('install', function (event) {
