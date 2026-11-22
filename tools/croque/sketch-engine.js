@@ -1,4 +1,4 @@
-/* Croque-moi les seins : moteur de croquis au fusain, écrit à la main (aucune dépendance).
+/* Croque-moi les fesses : moteur de croquis au fusain, écrit à la main (aucune dépendance).
  *
  *   SketchEngine.draw({ data, w, h }, { technique, focus, seed }, onLayer) → { data, w, h }
  *

@@ -1,4 +1,4 @@
-/* Croque-moi les seins : fait tourner le moteur hors du fil principal (l'écran reste fluide). */
+/* Croque-moi les fesses : fait tourner le moteur hors du fil principal (l'écran reste fluide). */
 'use strict';
 
 importScripts('sketch-engine.js');

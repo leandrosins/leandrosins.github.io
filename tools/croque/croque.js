@@ -1,4 +1,4 @@
-/* Croque-moi les seins : interface. 100 % local (aucune ressource externe). */
+/* Croque-moi les fesses : interface. 100 % local (aucune ressource externe). */
 (function () {
   'use strict';
 
