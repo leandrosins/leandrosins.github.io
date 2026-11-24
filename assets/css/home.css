@@ -129,11 +129,48 @@ h1 {
 .tool-icon--gif { background: linear-gradient(145deg, #7ee2a8, #2fb3a0); }
 .tool-icon--impressionne { background: linear-gradient(145deg, #f0c27b, #6f93b8); }
 .tool-icon--croque { background: linear-gradient(145deg, #a8a29a, #3a3735); }
+.tool-icon--neon { background: linear-gradient(145deg, #ff3fb4, #7b3cff); }
+.tool-icon--filters { background: linear-gradient(145deg, #f0c27b, #a8a29a 45%, #ff3fb4); }
 
 .tool-text { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .tool-name { font-size: 17px; font-weight: 650; }
 .tool-desc { font-size: 14px; color: var(--muted); }
 .tool-chevron { color: var(--muted); flex: none; }
+
+/* ---------- Groupe dépliable (accordéon) ---------- */
+.tool-group { display: flex; flex-direction: column; }
+.group-toggle { width: 100%; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.group-chevron svg { display: block; transition: transform 0.25s ease; }
+.group-toggle[aria-expanded="true"] .group-chevron svg { transform: rotate(90deg); }
+
+/* grid 0fr → 1fr : la hauteur s'anime sans la connaître à l'avance */
+.group-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease, visibility 0s linear 0.3s;
+}
+.tool-group.is-open .group-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease 0.05s, visibility 0s;
+}
+.group-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 14px;
+  margin-left: 6px;
+  border-left: 2px solid var(--border);
+}
+.group-inner > :first-child { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .group-panel, .tool-group.is-open .group-panel, .group-chevron svg { transition: none; }
+}
 
 .home-footer { margin-top: auto; padding-top: 40px; text-align: center; }
 

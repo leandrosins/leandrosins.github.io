@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v19';
+var VERSION = 'v25';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -8,6 +8,7 @@ var FILES = [
   'manifest.webmanifest',
   'assets/css/home.css',
   'assets/js/register-sw.js',
+  'assets/js/home.js',
   'assets/icons/icon.svg',
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',
@@ -37,12 +38,21 @@ var FILES = [
   'tools/croque/croque.css',
   'tools/croque/croque.js',
   'tools/croque/sketch-engine.js',
-  'tools/croque/sketch-worker.js'
+  'tools/croque/sketch-worker.js',
+  'tools/neon/',
+  'tools/neon/index.html',
+  'tools/neon/neon.css',
+  'tools/neon/neon.js',
+  'tools/neon/neon-engine.js',
+  'tools/neon/neon-worker.js'
 ];
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
-    caches.open(CACHE).then(function (cache) { return cache.addAll(FILES); }).then(function () { return self.skipWaiting(); })
+    caches.open(CACHE).then(function (cache) {
+      // « reload » : on prend les fichiers sur le serveur, pas une vieille copie du cache HTTP
+      return cache.addAll(FILES.map(function (f) { return new Request(f, { cache: 'reload' }); }));
+    }).then(function () { return self.skipWaiting(); })
   );
 });
 
@@ -55,12 +65,25 @@ self.addEventListener('activate', function (event) {
 });
 
 // Réseau d'abord (pour recevoir les mises à jour), cache si hors ligne.
+// « no-cache » : le navigateur redemande toujours au serveur si le fichier a changé (réponse 304 légère
+// sinon). Sans ça, il peut resservir une ancienne copie de son cache HTTP pendant des heures, en
+// particulier les scripts chargés par les Web Workers, que Ctrl+Maj+R ne recharge pas.
+function fresh(req) {
+  if (req.mode === 'navigate') {
+    return fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
+      // une page servie après redirection (dossier sans « / ») doit redevenir une vraie redirection
+      return res.redirected ? Response.redirect(res.url, 302) : res;
+    });
+  }
+  return fetch(new Request(req, { cache: 'no-cache' }));
+}
+
 self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    fetch(req).then(function (res) {
-      if (res && res.ok) {
+    fresh(req).then(function (res) {
+      if (res && res.ok && res.type === 'basic') {
         var copy = res.clone();
         caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
       }

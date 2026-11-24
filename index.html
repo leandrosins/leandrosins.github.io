@@ -78,40 +78,72 @@
         </span>
       </a>
 
-      <a class="tool-card" href="tools/impressionne/index.html">
-        <span class="tool-icon tool-icon--impressionne" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 3c-4 2-8 6-10 10l2 2c4-3 7-7 8-12z"/>
-            <path d="M9 14c-3 0-4 2-4 4 0 1-1 2-2 2 4 2 9 0 8-4"/>
-          </svg>
-        </span>
-        <span class="tool-text">
-          <span class="tool-name">Impressionne-moi le corps</span>
-          <span class="tool-desc">Transformer une photo en peinture au couteau et au pinceau.</span>
-        </span>
-        <span class="tool-chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </span>
-      </a>
+      <section class="tool-group" id="filters">
+        <button class="tool-card group-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="filters-list">
+          <span class="tool-icon tool-icon--filters" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="5.5"/><circle cx="15" cy="9" r="5.5"/><circle cx="12" cy="15" r="5.5"/></svg>
+          </span>
+          <span class="tool-text">
+            <span class="tool-name">Les Filtres</span>
+            <span class="tool-desc">Peinture, fusain, néon : 3 styles artistiques.</span>
+          </span>
+          <span class="tool-chevron group-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </span>
+        </button>
+        <div class="group-panel" id="filters-list">
+          <div class="group-inner">
+            <a class="tool-card" href="tools/impressionne/index.html">
+              <span class="tool-icon tool-icon--impressionne" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 3c-4 2-8 6-10 10l2 2c4-3 7-7 8-12z"/>
+                  <path d="M9 14c-3 0-4 2-4 4 0 1-1 2-2 2 4 2 9 0 8-4"/>
+                </svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">Impressionne-moi le corps</span>
+                <span class="tool-desc">Transformer une photo en peinture au couteau et au pinceau.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
 
-      <a class="tool-card" href="tools/croque/index.html">
-        <span class="tool-icon tool-icon--croque" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 3l3.5 3.5L9 18.5 4.5 19.5 5.5 15z"/><path d="M14.5 6l3.5 3.5"/><path d="M11 21c3-1.5 6 .5 10-1.5"/></svg>
-        </span>
-        <span class="tool-text">
-          <span class="tool-name">Croque-moi les fesses</span>
-          <span class="tool-desc">Transformer une photo en croquis au fusain.</span>
-        </span>
-        <span class="tool-chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </span>
-      </a>
+            <a class="tool-card" href="tools/croque/index.html">
+              <span class="tool-icon tool-icon--croque" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 3l3.5 3.5L9 18.5 4.5 19.5 5.5 15z"/><path d="M14.5 6l3.5 3.5"/><path d="M11 21c3-1.5 6 .5 10-1.5"/></svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">Croque-moi les fesses</span>
+                <span class="tool-desc">Transformer une photo en croquis au fusain.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+
+            <a class="tool-card" href="tools/neon/index.html">
+              <span class="tool-icon tool-icon--neon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/></svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">Neonise-moi les seins</span>
+                <span class="tool-desc">Transformer une photo en peinture néon expressionniste.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
     </nav>
 
     <footer class="home-footer">
       <span class="offline-badge" id="offline-badge">● Fonctionne hors ligne</span>
     </footer>
   </main>
+  <script src="assets/js/home.js"></script>
   <script src="assets/js/register-sw.js"></script>
 </body>
 </html>
