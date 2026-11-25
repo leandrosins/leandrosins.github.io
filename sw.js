@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v26';
+var VERSION = 'v27';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -44,7 +44,11 @@ var FILES = [
   'tools/neon/neon.css',
   'tools/neon/neon.js',
   'tools/neon/neon-engine.js',
-  'tools/neon/neon-worker.js'
+  'tools/neon/neon-worker.js',
+  'tools/pixel/',
+  'tools/pixel/index.html',
+  'tools/pixel/pixel.css',
+  'tools/pixel/pixel.js'
 ];
 
 self.addEventListener('install', function (event) {
