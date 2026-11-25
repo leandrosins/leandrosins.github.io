@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v27';
+var VERSION = 'v30';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -48,7 +48,27 @@ var FILES = [
   'tools/pixel/',
   'tools/pixel/index.html',
   'tools/pixel/pixel.css',
-  'tools/pixel/pixel.js'
+  'tools/pixel/pixel.js',
+  'tools/secret/',
+  'tools/secret/index.html',
+  'tools/secret/secret.css',
+  'tools/secret/secret.js',
+  'tools/secret/secret-engine.js',
+  'tools/secret/secret-worker.js',
+  'tools/story/',
+  'tools/story/index.html',
+  'tools/story/story.css',
+  'tools/story/story.js',
+  'tools/story/letter.js',
+  'assets/fonts/ebgaramond.woff',
+  'assets/fonts/ebgaramond-italic.woff',
+  'assets/fonts/lora.woff',
+  'assets/fonts/lora-italic.woff',
+  'assets/fonts/librebaskerville.woff',
+  'assets/fonts/librebaskerville-italic.woff',
+  'assets/fonts/cormorantgaramond.woff',
+  'assets/fonts/cormorantgaramond-italic.woff',
+  'assets/fonts/dancingscript.woff'
 ];
 
 self.addEventListener('install', function (event) {
