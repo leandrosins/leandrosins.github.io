@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v25';
+var VERSION = 'v26';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',

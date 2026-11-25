@@ -1,6 +1,6 @@
 # leandrosins.github.io
 
-**Leandro's tools** — une série de petits outils qui tournent entièrement dans le navigateur,
+**Duke Leandre's Kingdom** — une série de petits outils qui tournent entièrement dans le navigateur,
 pensés pour le smartphone (iOS en priorité). Aucune dépendance externe : pas de CDN, pas de
 police distante, pas de requête réseau. Une fois la page visitée, le site fonctionne hors ligne
 (service worker) et peut être ajouté à l'écran d'accueil.

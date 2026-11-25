@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Leandro's tools">
-  <meta name="description" content="Des petits outils 100 % hors ligne, qui tournent dans votre navigateur.">
-  <title>Leandro's tools</title>
+  <meta name="apple-mobile-web-app-title" content="Duke Leandre's Kingdom">
+  <meta name="description" content="Des mini apps de traitement photo, 100 %% locales : rien ne sort de votre téléphone.">
+  <title>Duke Leandre's Kingdom</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
@@ -22,64 +22,92 @@
       <div class="logo" aria-hidden="true">
         <img src="assets/icons/leandrosins_logo.jpg" alt="" width="56" height="56">
       </div>
-      <h1>Leandre's tools</h1>
-      <p class="tagline">Poke me : <a href="https://x.com/LeandroSins/">@leandrosins</a></p>
+      <h1>Duke Leandre's Kingdom</h1>
+      <p class="tagline">Tout ce dont vous avez besoin pour pimper vos contenus <span class="nowrap">🔞</span></p>
     </header>
 
+    <section class="manifesto" aria-label="Le royaume">
+      <p>Le Duc laisse libre accès à une série de mini apps qui font du traitement de photos.</p>
+      <p class="manifesto-motto">Tout ce qui se passe dans le royaume du Duc reste dans le royaume du Duc.</p>
+      <ul class="manifesto-list">
+        <li>Tous les traitements se font localement.</li>
+        <li>Aucune information ne fuite.</li>
+        <li>Aucune photo ni vidéo ne sort de vos téléphones.</li>
+      </ul>
+    </section>
+
     <nav class="tools" aria-label="Outils">
-      <a class="tool-card" href="tools/retouche/index.html">
-        <span class="tool-icon tool-icon--retouche" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="4"/>
-            <circle cx="9" cy="9" r="2"/>
-            <path d="M21 15l-4.5-4.5L7 20"/>
-          </svg>
-        </span>
-        <span class="tool-text">
-          <span class="tool-name">Retouche-moi plus bas</span>
-          <span class="tool-desc">Facilement flouter, coller un émoji ou signer une photo.</span>
-        </span>
-        <span class="tool-chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </span>
-      </a>
+      <section class="tool-group" id="tools-group">
+        <button class="tool-card group-toggle" type="button" aria-expanded="false" aria-controls="tools-list">
+          <span class="tool-icon tool-icon--tools" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>
+          </span>
+          <span class="tool-text">
+            <span class="tool-name">Les outils</span>
+            <span class="tool-desc">Retouche, mosaïque, GIF : 3 outils pratiques.</span>
+          </span>
+          <span class="tool-chevron group-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </span>
+        </button>
+        <div class="group-panel" id="tools-list">
+          <div class="group-inner">
+            <a class="tool-card" href="tools/retouche/index.html">
+              <span class="tool-icon tool-icon--retouche" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="4"/>
+                  <circle cx="9" cy="9" r="2"/>
+                  <path d="M21 15l-4.5-4.5L7 20"/>
+                </svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">Retouche-moi plus bas</span>
+                <span class="tool-desc">Facilement flouter, coller un émoji ou signer une photo.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
 
-      <a class="tool-card" href="tools/mosaic/index.html">
-        <span class="tool-icon tool-icon--mosaic" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="8" height="11" rx="2"/>
-            <rect x="13" y="3" width="8" height="7" rx="2"/>
-            <rect x="3" y="16" width="8" height="5" rx="2"/>
-            <rect x="13" y="12" width="8" height="9" rx="2"/>
-          </svg>
-        </span>
-        <span class="tool-text">
-          <span class="tool-name">Mozaïc-moi plus fort</span>
-          <span class="tool-desc">Assembler 2, 4 ou 6 photos en une mosaïque, en portrait ou en paysage.</span>
-        </span>
-        <span class="tool-chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </span>
-      </a>
+            <a class="tool-card" href="tools/mosaic/index.html">
+              <span class="tool-icon tool-icon--mosaic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="8" height="11" rx="2"/>
+                  <rect x="13" y="3" width="8" height="7" rx="2"/>
+                  <rect x="3" y="16" width="8" height="5" rx="2"/>
+                  <rect x="13" y="12" width="8" height="9" rx="2"/>
+                </svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">Mozaïc-moi plus fort</span>
+                <span class="tool-desc">Assembler 2, 4 ou 6 photos en une mosaïque, en portrait ou en paysage.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
 
-      <a class="tool-card" href="tools/gif/index.html">
-        <span class="tool-icon tool-icon--gif" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="16" rx="3"/>
-            <path d="M10.5 9.5v5l4-2.5z"/>
-          </svg>
-        </span>
-        <span class="tool-text">
-          <span class="tool-name">GIF-moi encore</span>
-          <span class="tool-desc">Transformer un extrait vidéo en GIF animé, avec texte et Erotic mod.</span>
-        </span>
-        <span class="tool-chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </span>
-      </a>
+            <a class="tool-card" href="tools/gif/index.html">
+              <span class="tool-icon tool-icon--gif" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="16" rx="3"/>
+                  <path d="M10.5 9.5v5l4-2.5z"/>
+                </svg>
+              </span>
+              <span class="tool-text">
+                <span class="tool-name">GIF-moi encore</span>
+                <span class="tool-desc">Transformer un extrait vidéo en GIF animé, avec texte et Erotic mod.</span>
+              </span>
+              <span class="tool-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
 
       <section class="tool-group" id="filters">
-        <button class="tool-card group-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="filters-list">
+        <button class="tool-card group-toggle" type="button" aria-expanded="false" aria-controls="filters-list">
           <span class="tool-icon tool-icon--filters" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="5.5"/><circle cx="15" cy="9" r="5.5"/><circle cx="12" cy="15" r="5.5"/></svg>
           </span>
@@ -140,6 +168,7 @@
     </nav>
 
     <footer class="home-footer">
+      <p class="contact">Discuter avec le Duc Leandre : <a href="https://x.com/LeandroSins/">@leandrosins</a></p>
       <span class="offline-badge" id="offline-badge">● Fonctionne hors ligne</span>
     </footer>
   </main>

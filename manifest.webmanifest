@@ -1,7 +1,7 @@
 {
-  "name": "Leandro's tools",
-  "short_name": "Leandro's tools",
-  "description": "Des petits outils 100 % hors ligne, qui tournent dans votre navigateur.",
+  "name": "Duke Leandre's Kingdom",
+  "short_name": "Duke Leandre",
+  "description": "Des mini apps de traitement photo, 100 % locales : rien ne sort de votre téléphone.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
