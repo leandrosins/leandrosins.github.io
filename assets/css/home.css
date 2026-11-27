@@ -135,6 +135,7 @@ h1 {
 .tool-icon--pixel { background: linear-gradient(145deg, #7ee2a8, #4a7bd8); }
 .tool-icon--secret { background: linear-gradient(145deg, #c3a6ff, #3a2a6b); }
 .tool-icon--story { background: linear-gradient(145deg, #fcebee, #e8b9c3 45%, #b26a7b); color: #3b272c; }
+.tool-icon--noel { background: linear-gradient(145deg, #e3263a, #1d7a3b); }
 .tool-icon--tools { background: linear-gradient(145deg, var(--accent), #ffb86b 55%, #2fb3a0); }
 .tool-icon--filters { background: linear-gradient(145deg, #f0c27b, #a8a29a 45%, #ff3fb4); }
 

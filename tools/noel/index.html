@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Déballe-moi sous le sapin">
+  <meta name="format-detection" content="telephone=no">
+  <title>Déballe-moi sous le sapin</title>
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="noel.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar" id="topbar">
+      <div class="topbar-left">
+        <a class="icon-btn" href="../../index.html" aria-label="Retour à l'accueil">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </a>
+        <label class="icon-btn" for="file-input" id="btn-new" aria-label="Choisir une autre photo" hidden>
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="11" r="2"/><path d="M21 16l-4-4-7 8"/></svg>
+        </label>
+      </div>
+      <h1 class="title"><span class="nowrap">Déballe-moi</span> sous le sapin</h1>
+      <div class="topbar-right"></div>
+    </header>
+
+    <main class="stage" id="stage">
+      <div class="empty" id="empty">
+        <div class="empty-art" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M3 7h18v3H3zM12 7v13"/><path d="M12 7c-2-4-6-4-6-1.5S9.5 7 12 7c2.5 0 6 1 6-1.5S14 3 12 7z"/></svg>
+        </div>
+        <label class="btn btn-primary btn-big" for="file-input">
+          <svg viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          Charger une photo
+        </label>
+        <p class="empty-hint">Un cadre de Noël, un bonnet, un nœud bien placé… Rien ne quitte votre téléphone.</p>
+      </div>
+
+      <canvas id="scene" hidden></canvas>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+
+    <div class="bottom-bars" id="bottom-bars" hidden>
+      <div class="controls">
+        <div class="modes" role="group" aria-label="Catégorie">
+          <button type="button" class="mode is-active" id="tab-frames" aria-pressed="true">Cadres</button>
+          <button type="button" class="mode" id="tab-stickers" aria-pressed="false">Accessoires</button>
+        </div>
+        <div class="strip" id="strip"></div>
+        <p class="hint" id="hint"></p>
+        <label class="text-row" id="text-row" hidden>
+          <span id="text-label">Légende</span>
+          <input type="text" id="text-input" maxlength="40" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </label>
+      </div>
+      <nav class="toolbar" aria-label="Actions">
+        <button type="button" class="tool" id="btn-delete" disabled>
+          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>
+          <span>Supprimer</span>
+        </button>
+        <button type="button" class="tool tool--save" id="btn-save">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
+          <span>Exporter</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Feuille d'export -->
+  <div class="sheet-backdrop" id="save-sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="save-title">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <h2 id="save-title">Votre photo est prête</h2>
+      <div class="sheet-preview"><img id="save-preview" alt="Aperçu de la photo"></div>
+      <p class="sheet-hint" id="save-hint"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-primary btn-big" id="btn-share">
+          <svg viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M6 11H5a1 1 0 00-1 1v8a1 1 0 001 1h14a1 1 0 001-1v-8a1 1 0 00-1-1h-1"/></svg>
+          Enregistrer dans Photos
+        </button>
+        <a class="btn btn-ghost btn-big" id="btn-download" download>Télécharger le fichier</a>
+        <button type="button" class="btn btn-ghost" id="btn-close-sheet">Continuer</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*" hidden>
+  <script src="noel-art.js"></script>
+  <script src="noel.js"></script>
+  <script src="../../assets/js/register-sw.js"></script>
+</body>
+</html>
