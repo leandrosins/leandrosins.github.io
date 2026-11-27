@@ -1,6 +1,6 @@
 // Service worker : met tout le site en cache pour un usage 100 % hors ligne.
 // Pensez à incrémenter VERSION à chaque modification des fichiers listés.
-var VERSION = 'v31';
+var VERSION = 'v32';
 var CACHE = 'leandro-tools-' + VERSION;
 var FILES = [
   './',
@@ -65,6 +65,12 @@ var FILES = [
   'tools/noel/noel.css',
   'tools/noel/noel.js',
   'tools/noel/noel-art.js',
+  'tools/gazette/',
+  'tools/gazette/index.html',
+  'tools/gazette/gazette.css',
+  'tools/gazette/gazette.js',
+  'tools/gazette/gif-decode.js',
+  'tools/gazette/gazette-worker.js',
   'assets/fonts/ebgaramond.woff',
   'assets/fonts/ebgaramond-italic.woff',
   'assets/fonts/lora.woff',
